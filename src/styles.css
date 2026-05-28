@@ -139,6 +139,12 @@ button:hover {
   color: #7b4e1d;
 }
 
+/* ── Notification with error variant ── */
+.notification-error {
+  background: #ffe8e8 !important;
+  color: #9f2d2d !important;
+}
+
 .notification {
   margin-top: 14px;
   padding: 14px 16px;
@@ -249,9 +255,15 @@ button:hover {
   margin-right: 8px;
 }
 
-.tiny-button.danger {
+.tiny-button.danger,
+button.danger {
   background: #fff2f2;
   color: #9f2d2d;
+  border: 1px solid #ffd4d4;
+}
+
+button.danger:hover {
+  background: #ffe0e0;
 }
 
 .checkbox-label {
@@ -302,6 +314,107 @@ button:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+/* ── Modal overlay ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-box {
+  background: #fff;
+  border-radius: 22px;
+  padding: 32px;
+  max-width: 440px;
+  width: calc(100% - 32px);
+  box-shadow: 0 24px 60px rgba(38, 54, 92, 0.25);
+}
+
+.modal-box h3 {
+  margin: 0 0 12px;
+  font-size: 1.3rem;
+}
+
+.modal-box p {
+  margin: 0 0 24px;
+  color: #53627c;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #6b7685;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.empty-state strong {
+  font-size: 1rem;
+  color: #3b4a63;
+}
+
+/* ── Demo banner ── */
+.demo-card {
+  background: linear-gradient(135deg, #eef4ff, #e0edff);
+  border: 1px solid #c8ddff;
+}
+
+.demo-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.demo-banner h2 {
+  margin: 0 0 6px;
+  font-size: 1.3rem;
+}
+
+.demo-banner p {
+  color: #3b5a8f;
+}
+
+.demo-button {
+  background: #1a4fbf;
+  color: white;
+  padding: 12px 24px;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.demo-button:hover {
+  background: #1541a0;
+}
+
+/* ── User toolbar ── */
+.user-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.user-toolbar span {
+  color: #53627c;
+  font-size: 0.9rem;
 }
 
 @media (max-width: 860px) {

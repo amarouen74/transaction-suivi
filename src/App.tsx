@@ -3,8 +3,11 @@ import { buildMilestones, buildReminders, buildSummary, determineRisk, getDealSt
 import { collectReminders } from './reminderEngine';
 import type { Contact, ContactRole, DealStatus, DocumentStatus, LoanStatus, NotaireStatus, ReminderItem, Transaction } from './types';
 import { deleteContact as deleteContactApi, deleteDeal as deleteDealApi, fetchContacts, fetchDeals, saveContact as saveContactApi, saveDeal, signIn, signUp, signOut, getSession, onAuthStateChange } from './api';
+import { supabaseReady } from './supabaseClient';
 
 const REMINDER_INTERVAL_MS = 60_000;
+
+type Notification = { message: string; type: 'success' | 'error' } | null;
 
 const emptyTransaction: Transaction = {
   id: '',
@@ -40,6 +43,66 @@ const roleLabel = (role: ContactRole) => {
   return role.replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
+// ── Sample demo data ──
+const demoTransactions: Transaction[] = [
+  {
+    id: 'demo-1',
+    property: '12 Rue de Rivoli, Paris',
+    buyer: 'Sophie Martin',
+    buyerId: undefined,
+    seller: 'Jean Dupont',
+    sellerId: undefined,
+    compromisDate: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10),
+    notaire: 'Me. Laurent Petit',
+    notaireId: undefined,
+    price: 425000,
+    loanStatus: 'approved',
+    documentStatus: 'missing',
+    notaireStatus: 'ready',
+    completed: false
+  },
+  {
+    id: 'demo-2',
+    property: '8 Avenue des Ternes, Lyon',
+    buyer: 'Marc Lefevre',
+    buyerId: undefined,
+    seller: 'Claire Bernard',
+    sellerId: undefined,
+    compromisDate: new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10),
+    notaire: 'Me. Sophie Moreau',
+    notaireId: undefined,
+    price: 312000,
+    loanStatus: 'pending',
+    documentStatus: 'complete',
+    notaireStatus: 'not ready',
+    completed: false
+  },
+  {
+    id: 'demo-3',
+    property: '25 Boulevard Haussmann, Marseille',
+    buyer: 'Lucas Roux',
+    buyerId: undefined,
+    seller: 'Marie Lambert',
+    sellerId: undefined,
+    compromisDate: new Date(Date.now() - 75 * 86400000).toISOString().slice(0, 10),
+    notaire: 'Me. Philippe Durand',
+    notaireId: undefined,
+    price: 550000,
+    loanStatus: 'pending',
+    documentStatus: 'missing',
+    notaireStatus: 'not ready',
+    completed: false
+  }
+];
+
+const demoContacts: Contact[] = [
+  { id: 'demo-c1', name: 'Sophie Martin', role: 'buyer', email: 'sophie.martin@email.com', phone: '06 12 34 56 78' },
+  { id: 'demo-c2', name: 'Jean Dupont', role: 'seller', email: 'jean.dupont@email.com', phone: '06 98 76 54 32' },
+  { id: 'demo-c3', name: 'Me. Laurent Petit', role: 'notaire', email: 'laurent.petit@notaire.fr', phone: '01 45 67 89 01' },
+  { id: 'demo-c4', name: 'Marc Lefevre', role: 'buyer', email: 'marc.lefevre@email.com', phone: '06 23 45 67 89' },
+  { id: 'demo-c5', name: 'Claire Bernard', role: 'seller', email: 'claire.bernard@email.com', phone: '06 87 65 43 21' }
+];
+
 function App() {
   const [user, setUser] = useState<any | null>(null);
   const [authMode, setAuthMode] = useState<'signIn' | 'signUp'>('signIn');
@@ -51,22 +114,22 @@ function App() {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState<Contact>(emptyContact);
   const [filter, setFilter] = useState<DealStatus>('all');
-  const [notification, setNotification] = useState('');
-  const [error, setError] = useState('');
+  const [notification, setNotification] = useState<Notification>(null);
   const [loading, setLoading] = useState(false);
   const [dueReminders, setDueReminders] = useState<ReminderItem[]>([]);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'deal' | 'contact'; id: string } | null>(null);
 
   const loadData = async (userId: string) => {
     setLoading(true);
-    setError('');
+    setNotification(null);
 
     try {
       const [deals, savedContacts] = await Promise.all([fetchDeals(userId), fetchContacts(userId)]);
       setTransactions(deals);
       setContacts(savedContacts);
     } catch (error) {
-      setError(`Unable to load backend data: ${error}`);
+      notify(`Unable to load backend data: ${error}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -84,7 +147,7 @@ function App() {
       if (session?.user) {
         setUser(session.user);
         loadData(session.user.id);
-        setNotification('Signed in successfully.');
+        notify('Signed in successfully.', 'success');
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setTransactions([]);
@@ -161,16 +224,9 @@ function App() {
     setContactForm(emptyContact);
   };
 
-  const handleNotification = (message: string) => {
-    setError('');
-    setNotification(message);
-    window.setTimeout(() => setNotification(''), 3000);
-  };
-
-  const handleError = (message: string) => {
-    setNotification('');
-    setError(message);
-    window.setTimeout(() => setError(''), 5000);
+  const notify = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+    window.setTimeout(() => setNotification(null), type === 'error' ? 5000 : 3000);
   };
 
   const handleAuthFormChange = (field: 'email' | 'password', value: string) => {
@@ -179,12 +235,12 @@ function App() {
 
   const loginUser = async () => {
     if (!authForm.email.trim() || !authForm.password.trim()) {
-      handleError('Email and password are required.');
+      notify('Email and password are required.', 'error');
       return;
     }
 
     setLoading(true);
-    setError('');
+    setNotification(null);
 
     try {
       const response = authMode === 'signIn'
@@ -195,9 +251,9 @@ function App() {
         throw response.error;
       }
 
-      handleNotification(authMode === 'signIn' ? 'Signed in successfully.' : 'Check your email to confirm sign-up.');
+      notify(authMode === 'signIn' ? 'Signed in successfully.' : 'Check your email to confirm sign-up.', 'success');
     } catch (error) {
-      handleError(`Authentication failed: ${error}`);
+      notify(`Authentication failed: ${error}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -210,22 +266,24 @@ function App() {
     setContacts([]);
     setTransaction(emptyTransaction);
     setContactForm(emptyContact);
-    handleNotification('Signed out.');
+    setNotification(null);
+    setDeleteConfirm(null);
+    notify('Signed out.', 'success');
   };
 
   const saveTransaction = async () => {
     if (!user) {
-      handleError('Please sign in before saving deals.');
+      notify('Please sign in before saving deals.', 'error');
       return;
     }
 
     if (!transaction.property.trim() || !transaction.buyer.trim() || !transaction.seller.trim()) {
-      handleError('Property, buyer, and seller are required.');
+      notify('Property, buyer, and seller are required.', 'error');
       return;
     }
 
     setLoading(true);
-    setError('');
+    setNotification(null);
 
     try {
       const result = await saveDeal(transaction, user.id);
@@ -235,10 +293,10 @@ function App() {
         }
         return [result, ...current];
       });
-      handleNotification(selectedDealId ? 'Deal updated.' : 'Deal saved.');
+      notify(selectedDealId ? 'Deal updated.' : 'Deal saved.', 'success');
       resetDealForm();
     } catch (error) {
-      handleError(`Unable to save deal: ${error}`);
+      notify(`Unable to save deal: ${error}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -246,17 +304,17 @@ function App() {
 
   const saveContactForm = async () => {
     if (!user) {
-      handleError('Please sign in before saving contacts.');
+      notify('Please sign in before saving contacts.', 'error');
       return;
     }
 
     if (!contactForm.name.trim()) {
-      handleError('Contact name is required.');
+      notify('Contact name is required.', 'error');
       return;
     }
 
     setLoading(true);
-    setError('');
+    setNotification(null);
 
     try {
       const result = await saveContactApi(contactForm, user.id);
@@ -266,10 +324,10 @@ function App() {
         }
         return [result, ...current];
       });
-      handleNotification(selectedContactId ? 'Contact updated.' : 'Contact saved.');
+      notify(selectedContactId ? 'Contact updated.' : 'Contact saved.', 'success');
       resetContactForm();
     } catch (error) {
-      handleError(`Unable to save contact: ${error}`);
+      notify(`Unable to save contact: ${error}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -282,16 +340,37 @@ function App() {
     setTransaction(selected);
   };
 
-  const deleteTransaction = async (id: string) => {
-    if (!user) return;
+  const requestDeleteDeal = (id: string) => {
+    setDeleteConfirm({ type: 'deal', id });
+  };
+
+  const requestDeleteContact = (id: string) => {
+    setDeleteConfirm({ type: 'contact', id });
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm || !user) return;
 
     try {
-      await deleteDealApi(id, user.id);
-      setTransactions((current) => current.filter((item) => item.id !== id));
-      if (selectedDealId === id) resetDealForm();
-      handleNotification('Deal removed.');
+      if (deleteConfirm.type === 'deal') {
+        await deleteDealApi(deleteConfirm.id, user.id);
+        setTransactions((current) => current.filter((item) => item.id !== deleteConfirm.id));
+        if (selectedDealId === deleteConfirm.id) resetDealForm();
+        notify('Deal removed.', 'success');
+      } else {
+        await deleteContactApi(deleteConfirm.id, user.id);
+        setContacts((current) => current.filter((item) => item.id !== deleteConfirm.id));
+        if (selectedContactId === deleteConfirm.id) resetContactForm();
+        notify('Contact removed.', 'success');
+      }
     } catch (error) {
-      handleError(`Unable to remove deal: ${error}`);
+      notify(`Unable to remove: ${error}`, 'error');
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -302,31 +381,16 @@ function App() {
     setContactForm(selected);
   };
 
-  const deleteContact = async (id: string) => {
-    if (!user) return;
-
-    try {
-      await deleteContactApi(id, user.id);
-      setContacts((current) => current.filter((item) => item.id !== id));
-      if (selectedContactId === id) resetContactForm();
-      handleNotification('Contact removed.');
-    } catch (error) {
-      handleError(`Unable to remove contact: ${error}`);
-    }
-  };
-
   const copySummary = () => {
     const summary = buildSummary(transaction);
     navigator.clipboard.writeText(summary).then(() => {
-      setNotification('Summary copied to clipboard.');
-      window.setTimeout(() => setNotification(''), 3000);
+      notify('Summary copied to clipboard.', 'success');
     });
   };
 
   const sendReminderEmail = (reminder: ReminderItem) => {
     if (!reminder.contactEmail) {
-      setNotification(`No email address for ${reminder.contactRole}.`);
-      window.setTimeout(() => setNotification(''), 3000);
+      notify(`No email address for ${reminder.contactRole}.`, 'error');
       return;
     }
 
@@ -341,17 +405,54 @@ function App() {
         body: `${reminder.message} (due ${reminder.dueDate})`,
         silent: true
       });
-      setNotification(`Browser reminder sent for ${reminder.property}.`);
-      window.setTimeout(() => setNotification(''), 3000);
+      notify(`Browser reminder sent for ${reminder.property}.`, 'success');
       return;
     }
 
-    setNotification('Allow browser notifications to use alerts.');
-    window.setTimeout(() => setNotification(''), 3000);
+    notify('Allow browser notifications to use alerts.', 'error');
   };
 
   const contactOptions = (role: ContactRole) => contacts.filter((item) => item.role === role || item.role === 'other');
 
+  const seedDemoData = () => {
+    setTransactions(demoTransactions);
+    setContacts(demoContacts);
+    resetDealForm();
+    resetContactForm();
+    setFilter('all');
+    setNotification(null);
+    notify('Demo data loaded — explore the dashboard below!', 'success');
+  };
+
+  const hasRealData = user && (transactions.length > 0 || contacts.length > 0);
+
+  // ── Setup required screen ──
+  if (!supabaseReady) {
+    return (
+      <div className="page-shell">
+        <header>
+          <h1>Transaction Suivi</h1>
+        </header>
+        <section className="card auth-card">
+          <h2>Setup Required</h2>
+          <p>This app needs Supabase credentials to run.</p>
+          <ol style={{ marginTop: 16, lineHeight: 2 }}>
+            <li>Create a <strong>.env</strong> file in the project root.</li>
+            <li>Add your Supabase project URL and anon key:</li>
+          </ol>
+          <pre style={{ background: '#f0f4ff', padding: 16, borderRadius: 12, fontSize: '0.9rem', overflow: 'auto' }}>
+{`VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key`}
+          </pre>
+          <p style={{ marginTop: 16 }}>
+            You can find these in your Supabase project dashboard under <strong>Settings → API</strong>.
+          </p>
+        </section>
+      </div>
+    );
+  }
+
+  // ── Auth screen ──
   if (!user) {
     return (
       <div className="page-shell">
@@ -382,13 +483,13 @@ function App() {
               {authMode === 'signIn' ? 'Create account' : 'Already have an account?'}
             </button>
           </div>
-          {notification && <div className="notification">{notification}</div>}
-          {error && <div className="notification error">{error}</div>}
+          {notification && <div className={`notification ${notification.type === 'error' ? 'notification-error' : ''}`}>{notification.message}</div>}
         </section>
       </div>
     );
   }
 
+  // ── Main app ──
   return (
     <div className="page-shell">
       <header>
@@ -401,14 +502,47 @@ function App() {
           </button>
         </div>
         {loading && <div className="notification">Loading...</div>}
-        {error && <div className="notification error">{error}</div>}
+        {notification && <div className={`notification ${notification.type === 'error' ? 'notification-error' : ''}`}>{notification.message}</div>}
       </header>
+
+      {/* ── Demo data banner ── */}
+      {!hasRealData && (
+        <section className="card demo-card">
+          <div className="demo-banner">
+            <div>
+              <h2>👋 Welcome to Transaction Suivi</h2>
+              <p>Try it out instantly with sample data — no commitment needed. Or create your first deal below.</p>
+            </div>
+            <button className="demo-button" onClick={seedDemoData}>
+              Load demo data
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* ── Delete confirmation modal ── */}
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={cancelDelete}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h3>Confirm deletion</h3>
+            <p>Are you sure you want to delete this {deleteConfirm.type === 'deal' ? 'deal' : 'contact'}? This action cannot be undone.</p>
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={cancelDelete}>
+                Cancel
+              </button>
+              <button type="button" className="danger" onClick={confirmDelete}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className="card dashboard-card">
         <div className="dashboard-header">
           <div>
             <h2>Deal dashboard</h2>
-            <p>Saved transactions persist in your browser and stay available across refreshes.</p>
+            <p>Saved transactions persist in your Supabase account.</p>
           </div>
           <div className="filter-buttons">
             {(['all', 'active', 'at risk', 'closing soon', 'completed'] as DealStatus[]).map((status) => (
@@ -448,7 +582,10 @@ function App() {
               {filteredTransactions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="empty-row">
-                    No transactions for this filter.
+                    <div className="empty-state">
+                      <strong>No deals yet</strong>
+                      <span>Create your first transaction using the form below.</span>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -466,7 +603,7 @@ function App() {
                         <button type="button" className="tiny-button" onClick={() => selectTransaction(item.id)}>
                           Edit
                         </button>
-                        <button type="button" className="tiny-button danger" onClick={() => deleteTransaction(item.id)}>
+                        <button type="button" className="tiny-button danger" onClick={() => requestDeleteDeal(item.id)}>
                           Delete
                         </button>
                       </td>
@@ -537,7 +674,10 @@ function App() {
               {contacts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="empty-row">
-                    No saved contacts yet.
+                    <div className="empty-state">
+                      <strong>No contacts yet</strong>
+                      <span>Save your first contact above and link them to a deal.</span>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -551,7 +691,7 @@ function App() {
                       <button type="button" className="tiny-button" onClick={() => selectContact(contact.id)}>
                         Edit
                       </button>
-                      <button type="button" className="tiny-button danger" onClick={() => deleteContact(contact.id)}>
+                      <button type="button" className="tiny-button danger" onClick={() => requestDeleteContact(contact.id)}>
                         Delete
                       </button>
                     </td>
@@ -685,9 +825,13 @@ function App() {
       <section className="card reminders-card">
         <h2>Automatic reminders</h2>
         <ul>
-          {reminders.map((reminder) => (
-            <li key={reminder}>{reminder}</li>
-          ))}
+          {reminders.length === 0 ? (
+            <li style={{ listStyle: 'none', color: '#6b7685' }}>No reminders for the current selection.</li>
+          ) : (
+            reminders.map((reminder, idx) => (
+              <li key={`rm-${idx}`}>{reminder}</li>
+            ))
+          )}
         </ul>
       </section>
 
@@ -723,7 +867,6 @@ function App() {
         <h2>Summary export</h2>
         <p>Copy a quick shareable summary for clients, notaire, or your own follow-up notes.</p>
         <button onClick={copySummary}>Copy summary</button>
-        {notification && <div className="notification">{notification}</div>}
       </section>
     </div>
   );

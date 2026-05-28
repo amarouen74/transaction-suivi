@@ -1,5 +1,17 @@
 import type { Contact, Transaction } from './types';
-import { supabase } from './supabaseClient';
+import { supabase, supabaseReady } from './supabaseClient';
+
+class SupabaseNotConfiguredError extends Error {
+  constructor() {
+    super('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+    this.name = 'SupabaseNotConfiguredError';
+  }
+}
+
+const requireSupabase = () => {
+  if (!supabaseReady || !supabase) throw new SupabaseNotConfiguredError();
+  return supabase;
+};
 
 const mapTransaction = (row: any): Transaction => ({
   id: row.id,
@@ -43,28 +55,30 @@ const transactionPayload = (transaction: Transaction) => ({
 });
 
 export const signIn = async (email: string, password: string) => {
-  return supabase.auth.signInWithPassword({ email, password });
+  return requireSupabase().auth.signInWithPassword({ email, password });
 };
 
 export const signUp = async (email: string, password: string) => {
-  return supabase.auth.signUp({ email, password });
+  return requireSupabase().auth.signUp({ email, password });
 };
 
 export const signOut = async () => {
-  return supabase.auth.signOut();
+  return requireSupabase().auth.signOut();
 };
 
 export const getSession = async () => {
-  const { data } = await supabase.auth.getSession();
+  const sb = requireSupabase();
+  const { data } = await sb.auth.getSession();
   return data.session;
 };
 
 export const onAuthStateChange = (handler: (event: string, session: any) => void) => {
-  return supabase.auth.onAuthStateChange((event, session) => handler(event, session));
+  return requireSupabase().auth.onAuthStateChange((event, session) => handler(event, session));
 };
 
 export const fetchDeals = async (userId: string) => {
-  const { data, error } = await supabase
+  const sb = requireSupabase();
+  const { data, error } = await sb
     .from('transactions')
     .select('*')
     .eq('user_id', userId)
@@ -75,10 +89,11 @@ export const fetchDeals = async (userId: string) => {
 };
 
 export const saveDeal = async (deal: Transaction, userId: string) => {
+  const sb = requireSupabase();
   const payload = { ...transactionPayload(deal), user_id: userId };
   const query = deal.id
-    ? supabase.from('transactions').update(payload).eq('id', deal.id).eq('user_id', userId).single()
-    : supabase.from('transactions').insert(payload).select().single();
+    ? sb.from('transactions').update(payload).eq('id', deal.id).eq('user_id', userId).single()
+    : sb.from('transactions').insert(payload).select().single();
 
   const { data, error } = await query;
   if (error) throw error;
@@ -86,12 +101,14 @@ export const saveDeal = async (deal: Transaction, userId: string) => {
 };
 
 export const deleteDeal = async (id: string, userId: string) => {
-  const { error } = await supabase.from('transactions').delete().eq('id', id).eq('user_id', userId);
+  const sb = requireSupabase();
+  const { error } = await sb.from('transactions').delete().eq('id', id).eq('user_id', userId);
   if (error) throw error;
 };
 
 export const fetchContacts = async (userId: string) => {
-  const { data, error } = await supabase
+  const sb = requireSupabase();
+  const { data, error } = await sb
     .from('contacts')
     .select('*')
     .eq('user_id', userId)
@@ -102,10 +119,11 @@ export const fetchContacts = async (userId: string) => {
 };
 
 export const saveContact = async (contact: Contact, userId: string) => {
+  const sb = requireSupabase();
   const payload = { ...contact, user_id: userId };
   const query = contact.id
-    ? supabase.from('contacts').update(payload).eq('id', contact.id).eq('user_id', userId).single()
-    : supabase.from('contacts').insert(payload).select().single();
+    ? sb.from('contacts').update(payload).eq('id', contact.id).eq('user_id', userId).single()
+    : sb.from('contacts').insert(payload).select().single();
 
   const { data, error } = await query;
   if (error) throw error;
@@ -113,6 +131,7 @@ export const saveContact = async (contact: Contact, userId: string) => {
 };
 
 export const deleteContact = async (id: string, userId: string) => {
-  const { error } = await supabase.from('contacts').delete().eq('id', id).eq('user_id', userId);
+  const sb = requireSupabase();
+  const { error } = await sb.from('contacts').delete().eq('id', id).eq('user_id', userId);
   if (error) throw error;
 };
