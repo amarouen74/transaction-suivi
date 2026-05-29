@@ -122,6 +122,7 @@ function App() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'deal' | 'contact'; id: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [quickData, setQuickData] = useState({ property: '', buyer: '', seller: '', price: 0 });
 
   const loadData = async (userId: string) => {
     setLoading(true);
@@ -476,8 +477,6 @@ function App() {
   };
 
   const hasRealData = user && (transactions.length > 0 || contacts.length > 0);
-
-  const [quickData, setQuickData] = useState({ property: '', buyer: '', seller: '', price: 0 });
 
   // ── Setup required screen ──
   if (!supabaseReady) {
