@@ -121,6 +121,7 @@ function App() {
   const [dueReminders, setDueReminders] = useState<ReminderItem[]>([]);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'deal' | 'contact'; id: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadData = async (userId: string) => {
     setLoading(true);
@@ -180,9 +181,21 @@ function App() {
   const risk = useMemo(() => determineRisk(transaction), [transaction]);
 
   const filteredTransactions = useMemo(() => {
-    if (filter === 'all') return transactions;
-    return transactions.filter((item) => getDealStatus(item) === filter);
-  }, [filter, transactions]);
+    let items = transactions;
+    if (filter !== 'all') {
+      items = items.filter((item) => getDealStatus(item) === filter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter((item) =>
+        item.property.toLowerCase().includes(q) ||
+        item.buyer.toLowerCase().includes(q) ||
+        item.seller.toLowerCase().includes(q) ||
+        (item.notaire || '').toLowerCase().includes(q)
+      );
+    }
+    return items;
+  }, [filter, transactions, searchQuery]);
 
   const stats = useMemo(
     () => ({
@@ -302,6 +315,28 @@ function App() {
       resetDealForm();
     } catch (error) {
       notify(`Unable to save deal: ${error}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveQuickDeal = async () => {
+    if (!user || !quickData.property.trim() || !quickData.buyer.trim() || !quickData.seller.trim()) return;
+    setLoading(true);
+    try {
+      const deal: Transaction = {
+        ...makeEmptyTransaction(),
+        property: quickData.property,
+        buyer: quickData.buyer,
+        seller: quickData.seller,
+        price: quickData.price,
+      };
+      const result = await saveDeal(deal, user.id);
+      setTransactions((current) => [result, ...current]);
+      setQuickData({ property: '', buyer: '', seller: '', price: 0 });
+      notify('Deal saved! You can edit details below.', 'success');
+    } catch (error) {
+      notify(`Unable to save: ${error}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -435,11 +470,14 @@ function App() {
     resetDealForm();
     resetContactForm();
     setFilter('all');
+    setSearchQuery('');
     setNotification(null);
     notify('Demo data loaded! ⚠️ This is a preview — data will disappear on refresh.', 'success');
   };
 
   const hasRealData = user && (transactions.length > 0 || contacts.length > 0);
+
+  const [quickData, setQuickData] = useState({ property: '', buyer: '', seller: '', price: 0 });
 
   // ── Setup required screen ──
   if (!supabaseReady) {
@@ -554,23 +592,69 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
         </div>
       )}
 
+      {/* ── Quick-add bar ── */}
+      <section className="card quick-add-card">
+        <div className="quick-add-header">
+          <h2>⚡ Quick add deal</h2>
+          <span className="quick-add-hint">Property, buyer, seller — that's it. Edit details after saving.</span>
+        </div>
+        <div className="quick-add-fields">
+          <input
+            value={quickData.property}
+            onChange={(e) => setQuickData({ ...quickData, property: e.target.value })}
+            placeholder="Property address"
+          />
+          <input
+            value={quickData.buyer}
+            onChange={(e) => setQuickData({ ...quickData, buyer: e.target.value })}
+            placeholder="Buyer name"
+          />
+          <input
+            value={quickData.seller}
+            onChange={(e) => setQuickData({ ...quickData, seller: e.target.value })}
+            placeholder="Seller name"
+          />
+          <input
+            type="number"
+            min="0"
+            value={quickData.price || ''}
+            onChange={(e) => setQuickData({ ...quickData, price: Number(e.target.value) })}
+            placeholder="Price (€)"
+          />
+          <button
+            onClick={saveQuickDeal}
+            disabled={loading || !quickData.property.trim() || !quickData.buyer.trim() || !quickData.seller.trim()}
+          >
+            + Add deal
+          </button>
+        </div>
+      </section>
+
       <section className="card dashboard-card">
         <div className="dashboard-header">
           <div>
             <h2>Deal dashboard</h2>
-            <p>Saved transactions persist in your Supabase account.</p>
           </div>
-          <div className="filter-buttons">
-            {(['all', 'active', 'at risk', 'closing soon', 'completed'] as DealStatus[]).map((status) => (
-              <button
-                key={status}
-                className={filter === status ? 'filter-button active' : 'filter-button'}
-                type="button"
-                onClick={() => setFilter(status)}
-              >
-                {status === 'all' ? 'All deals' : status.replace(/\b\w/g, (c) => c.toUpperCase())}
-              </button>
-            ))}
+          <div className="dashboard-controls">
+            <input
+              className="search-input"
+              type="text"
+              placeholder="🔍 Search property, buyer, seller..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <div className="filter-buttons">
+              {(['all', 'active', 'at risk', 'closing soon', 'completed'] as DealStatus[]).map((status) => (
+                <button
+                  key={status}
+                  className={filter === status ? 'filter-button active' : 'filter-button'}
+                  type="button"
+                  onClick={() => setFilter(status)}
+                >
+                  {status === 'all' ? 'All deals' : status.replace(/\b\w/g, (c) => c.toUpperCase())}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -599,8 +683,8 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
                 <tr>
                   <td colSpan={6} className="empty-row">
                     <div className="empty-state">
-                      <strong>No deals yet</strong>
-                      <span>Create your first transaction using the form below.</span>
+                      <strong>{searchQuery || filter !== 'all' ? 'No matching deals' : 'No deals yet'}</strong>
+                      <span>{searchQuery || filter !== 'all' ? 'Try a different search or filter.' : 'Use the quick-add above or the full form below.'}</span>
                     </div>
                   </td>
                 </tr>
@@ -632,11 +716,12 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
         </div>
       </section>
 
-      {/* ── Transaction form FIRST (before contacts) ── */}
+      {/* ── Full transaction form ── */}
       <section className="card form-card">
         <div className="split-row">
           <div>
-            <h2>{selectedDealId ? 'Edit transaction' : 'Create transaction'}</h2>
+            <h2>{selectedDealId ? 'Edit transaction' : 'Full deal form'}</h2>
+            <p>Set statuses, dates, and link contacts for a selected deal.</p>
           </div>
           <div className="form-actions">
             <button type="button" onClick={resetDealForm} className="secondary">
@@ -653,85 +738,91 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
           </div>
         </div>
 
-        <div className="field-grid">
-          <label>
-            Property
-            <input value={transaction.property} onChange={(e) => handleChange('property', e.target.value)} placeholder="Address or short name" />
-          </label>
-          <label>
-            Buyer contact
-            <select value={transaction.buyerId || ''} onChange={(e) => selectContactForTransaction('buyerId', e.target.value)}>
-              <option value="">Choose buyer contact</option>
-              {contactOptions('buyer').map((contact) => (
-                <option key={contact.id} value={contact.id}>{contact.name}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Buyer name
-            <input value={transaction.buyer} onChange={(e) => handleChange('buyer', e.target.value)} placeholder="Buyer name" />
-          </label>
-          <label>
-            Seller contact
-            <select value={transaction.sellerId || ''} onChange={(e) => selectContactForTransaction('sellerId', e.target.value)}>
-              <option value="">Choose seller contact</option>
-              {contactOptions('seller').map((contact) => (
-                <option key={contact.id} value={contact.id}>{contact.name}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Seller name
-            <input value={transaction.seller} onChange={(e) => handleChange('seller', e.target.value)} placeholder="Seller name" />
-          </label>
-          <label>
-            Compromis date
-            <input type="date" value={transaction.compromisDate} onChange={(e) => handleChange('compromisDate', e.target.value)} />
-          </label>
-          <label>
-            Notaire contact
-            <select value={transaction.notaireId || ''} onChange={(e) => selectContactForTransaction('notaireId', e.target.value)}>
-              <option value="">Choose notaire contact</option>
-              {contactOptions('notaire').map((contact) => (
-                <option key={contact.id} value={contact.id}>{contact.name}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Notaire name
-            <input value={transaction.notaire} onChange={(e) => handleChange('notaire', e.target.value)} placeholder="Optional notaire" />
-          </label>
-          <label>
-            Price (€)
-            <input type="number" min="0" value={transaction.price} onChange={(e) => handleChange('price', Number(e.target.value))} />
-          </label>
-          <label>
-            Loan status
-            <select value={transaction.loanStatus} onChange={(e) => handleChange('loanStatus', e.target.value as LoanStatus)}>
-              <option value="pending">pending</option>
-              <option value="approved">approved</option>
-              <option value="refused">refused</option>
-            </select>
-          </label>
-          <label>
-            Document status
-            <select value={transaction.documentStatus} onChange={(e) => handleChange('documentStatus', e.target.value as DocumentStatus)}>
-              <option value="missing">missing</option>
-              <option value="complete">complete</option>
-            </select>
-          </label>
-          <label>
-            Notaire status
-            <select value={transaction.notaireStatus} onChange={(e) => handleChange('notaireStatus', e.target.value as NotaireStatus)}>
-              <option value="not ready">not ready</option>
-              <option value="ready">ready</option>
-            </select>
-          </label>
-          <label className="checkbox-label">
-            <input type="checkbox" checked={transaction.completed} onChange={(e) => handleChange('completed', e.target.checked)} />
-            Mark deal as completed
-          </label>
-        </div>
+        {!selectedDealId && !transaction.property && !transaction.buyer && !transaction.seller ? (
+          <p className="empty-state" style={{ marginTop: 12, textAlign: 'left', padding: 0 }}>
+            Select a deal from the dashboard to edit its details, or use the quick-add above.
+          </p>
+        ) : (
+          <div className="field-grid">
+            <label>
+              Property
+              <input value={transaction.property} onChange={(e) => handleChange('property', e.target.value)} placeholder="Address or short name" />
+            </label>
+            <label>
+              Buyer contact
+              <select value={transaction.buyerId || ''} onChange={(e) => selectContactForTransaction('buyerId', e.target.value)}>
+                <option value="">Choose buyer contact</option>
+                {contactOptions('buyer').map((contact) => (
+                  <option key={contact.id} value={contact.id}>{contact.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Buyer name
+              <input value={transaction.buyer} onChange={(e) => handleChange('buyer', e.target.value)} placeholder="Buyer name" />
+            </label>
+            <label>
+              Seller contact
+              <select value={transaction.sellerId || ''} onChange={(e) => selectContactForTransaction('sellerId', e.target.value)}>
+                <option value="">Choose seller contact</option>
+                {contactOptions('seller').map((contact) => (
+                  <option key={contact.id} value={contact.id}>{contact.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Seller name
+              <input value={transaction.seller} onChange={(e) => handleChange('seller', e.target.value)} placeholder="Seller name" />
+            </label>
+            <label>
+              Compromis date
+              <input type="date" value={transaction.compromisDate} onChange={(e) => handleChange('compromisDate', e.target.value)} />
+            </label>
+            <label>
+              Notaire contact
+              <select value={transaction.notaireId || ''} onChange={(e) => selectContactForTransaction('notaireId', e.target.value)}>
+                <option value="">Choose notaire contact</option>
+                {contactOptions('notaire').map((contact) => (
+                  <option key={contact.id} value={contact.id}>{contact.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Notaire name
+              <input value={transaction.notaire} onChange={(e) => handleChange('notaire', e.target.value)} placeholder="Optional notaire" />
+            </label>
+            <label>
+              Price (€)
+              <input type="number" min="0" value={transaction.price} onChange={(e) => handleChange('price', Number(e.target.value))} />
+            </label>
+            <label>
+              Loan status
+              <select value={transaction.loanStatus} onChange={(e) => handleChange('loanStatus', e.target.value as LoanStatus)}>
+                <option value="pending">pending</option>
+                <option value="approved">approved</option>
+                <option value="refused">refused</option>
+              </select>
+            </label>
+            <label>
+              Document status
+              <select value={transaction.documentStatus} onChange={(e) => handleChange('documentStatus', e.target.value as DocumentStatus)}>
+                <option value="missing">missing</option>
+                <option value="complete">complete</option>
+              </select>
+            </label>
+            <label>
+              Notaire status
+              <select value={transaction.notaireStatus} onChange={(e) => handleChange('notaireStatus', e.target.value as NotaireStatus)}>
+                <option value="not ready">not ready</option>
+                <option value="ready">ready</option>
+              </select>
+            </label>
+            <label className="checkbox-label">
+              <input type="checkbox" checked={transaction.completed} onChange={(e) => handleChange('completed', e.target.checked)} />
+              Mark deal as completed
+            </label>
+          </div>
+        )}
       </section>
 
       {/* ── Timeline and status ── */}
