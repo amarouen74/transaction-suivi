@@ -9,14 +9,16 @@ const REMINDER_INTERVAL_MS = 60_000;
 
 type Notification = { message: string; type: 'success' | 'error' } | null;
 
-const emptyTransaction: Transaction = {
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+const makeEmptyTransaction = (): Transaction => ({
   id: '',
   property: '',
   buyer: '',
   buyerId: undefined,
   seller: '',
   sellerId: undefined,
-  compromisDate: new Date().toISOString().slice(0, 10),
+  compromisDate: todayStr(),
   notaire: '',
   notaireId: undefined,
   price: 0,
@@ -24,7 +26,7 @@ const emptyTransaction: Transaction = {
   documentStatus: 'missing',
   notaireStatus: 'not ready',
   completed: false
-};
+});
 
 const emptyContact: Contact = {
   id: '',
@@ -108,7 +110,7 @@ function App() {
   const [authMode, setAuthMode] = useState<'signIn' | 'signUp'>('signIn');
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [transaction, setTransaction] = useState<Transaction>(emptyTransaction);
+  const [transaction, setTransaction] = useState<Transaction>(makeEmptyTransaction);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
@@ -147,7 +149,9 @@ function App() {
       if (session?.user) {
         setUser(session.user);
         loadData(session.user.id);
-        notify('Signed in successfully.', 'success');
+        if (event === 'SIGNED_IN') {
+          notify('Signed in successfully.', 'success');
+        }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setTransactions([]);
@@ -216,7 +220,7 @@ function App() {
 
   const resetDealForm = () => {
     setSelectedDealId(null);
-    setTransaction(emptyTransaction);
+    setTransaction(makeEmptyTransaction());
   };
 
   const resetContactForm = () => {
@@ -251,7 +255,9 @@ function App() {
         throw response.error;
       }
 
-      notify(authMode === 'signIn' ? 'Signed in successfully.' : 'Check your email to confirm sign-up.', 'success');
+      if (authMode === 'signUp') {
+        notify('Check your email to confirm sign-up.', 'success');
+      }
     } catch (error) {
       notify(`Authentication failed: ${error}`, 'error');
     } finally {
@@ -264,11 +270,10 @@ function App() {
     setUser(null);
     setTransactions([]);
     setContacts([]);
-    setTransaction(emptyTransaction);
+    setTransaction(makeEmptyTransaction());
     setContactForm(emptyContact);
     setNotification(null);
     setDeleteConfirm(null);
-    notify('Signed out.', 'success');
   };
 
   const saveTransaction = async () => {
@@ -381,6 +386,16 @@ function App() {
     setContactForm(selected);
   };
 
+  const cancelDealEdit = () => {
+    resetDealForm();
+    notify('Edit cancelled.', 'success');
+  };
+
+  const cancelContactEdit = () => {
+    resetContactForm();
+    notify('Edit cancelled.', 'success');
+  };
+
   const copySummary = () => {
     const summary = buildSummary(transaction);
     navigator.clipboard.writeText(summary).then(() => {
@@ -421,7 +436,7 @@ function App() {
     resetContactForm();
     setFilter('all');
     setNotification(null);
-    notify('Demo data loaded — explore the dashboard below!', 'success');
+    notify('Demo data loaded! ⚠️ This is a preview — data will disappear on refresh.', 'success');
   };
 
   const hasRealData = user && (transactions.length > 0 || contacts.length > 0);
@@ -517,6 +532,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
               Load demo data
             </button>
           </div>
+          <p className="demo-note">⚠️ Demo data is temporary and will disappear on refresh. Sign up to save your real deals permanently.</p>
         </section>
       )}
 
@@ -616,93 +632,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
         </div>
       </section>
 
-      <section className="card form-card">
-        <div className="split-row">
-          <div>
-            <h2>{selectedContactId ? 'Edit contact' : 'Create contact'}</h2>
-            <p>Save your buyer, seller, and notaire details here and link them to deals.</p>
-          </div>
-          <div className="form-actions">
-            <button type="button" onClick={resetContactForm} className="secondary">
-              New contact
-            </button>
-            <button type="button" onClick={saveContactForm}>
-              {selectedContactId ? 'Update contact' : 'Save contact'}
-            </button>
-          </div>
-        </div>
-
-        <div className="field-grid">
-          <label>
-            Name
-            <input value={contactForm.name} onChange={(e) => handleContactChange('name', e.target.value)} placeholder="Contact name" />
-          </label>
-          <label>
-            Role
-            <select value={contactForm.role} onChange={(e) => handleContactChange('role', e.target.value as ContactRole)}>
-              <option value="buyer">Buyer</option>
-              <option value="seller">Seller</option>
-              <option value="notaire">Notaire</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label>
-            Email
-            <input type="email" value={contactForm.email} onChange={(e) => handleContactChange('email', e.target.value)} placeholder="Email address" />
-          </label>
-          <label>
-            Phone
-            <input value={contactForm.phone} onChange={(e) => handleContactChange('phone', e.target.value)} placeholder="Phone number" />
-          </label>
-        </div>
-      </section>
-
-      <section className="card" style={{ paddingBottom: 0 }}>
-        <h2>Contact list</h2>
-        <div className="table-wrap">
-          <table className="deal-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contacts.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="empty-row">
-                    <div className="empty-state">
-                      <strong>No contacts yet</strong>
-                      <span>Save your first contact above and link them to a deal.</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                contacts.map((contact) => (
-                  <tr key={contact.id}>
-                    <td>{contact.name}</td>
-                    <td>{roleLabel(contact.role)}</td>
-                    <td>{contact.email || '-'}</td>
-                    <td>{contact.phone || '-'}</td>
-                    <td>
-                      <button type="button" className="tiny-button" onClick={() => selectContact(contact.id)}>
-                        Edit
-                      </button>
-                      <button type="button" className="tiny-button danger" onClick={() => requestDeleteContact(contact.id)}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
+      {/* ── Transaction form FIRST (before contacts) ── */}
       <section className="card form-card">
         <div className="split-row">
           <div>
@@ -712,6 +642,11 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
             <button type="button" onClick={resetDealForm} className="secondary">
               New deal
             </button>
+            {selectedDealId && (
+              <button type="button" className="secondary" onClick={cancelDealEdit}>
+                Cancel
+              </button>
+            )}
             <button type="button" onClick={saveTransaction}>
               {selectedDealId ? 'Update deal' : 'Save deal'}
             </button>
@@ -799,6 +734,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
         </div>
       </section>
 
+      {/* ── Timeline and status ── */}
       <section className="card overview-card">
         <div className="split-row">
           <div>
@@ -822,6 +758,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
         </div>
       </section>
 
+      {/* ── Automatic reminders ── */}
       <section className="card reminders-card">
         <h2>Automatic reminders</h2>
         <ul>
@@ -835,6 +772,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
         </ul>
       </section>
 
+      {/* ── Scheduled reminders ── */}
       <section className="card scheduled-reminders-card">
         <h2>Scheduled reminders</h2>
         {dueReminders.length === 0 ? (
@@ -863,6 +801,101 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
         )}
       </section>
 
+      {/* ── Contact form ── */}
+      <section className="card form-card">
+        <div className="split-row">
+          <div>
+            <h2>{selectedContactId ? 'Edit contact' : 'Create contact'}</h2>
+            <p>Save your buyer, seller, and notaire details here and link them to deals.</p>
+          </div>
+          <div className="form-actions">
+            <button type="button" onClick={resetContactForm} className="secondary">
+              New contact
+            </button>
+            {selectedContactId && (
+              <button type="button" className="secondary" onClick={cancelContactEdit}>
+                Cancel
+              </button>
+            )}
+            <button type="button" onClick={saveContactForm}>
+              {selectedContactId ? 'Update contact' : 'Save contact'}
+            </button>
+          </div>
+        </div>
+
+        <div className="field-grid">
+          <label>
+            Name
+            <input value={contactForm.name} onChange={(e) => handleContactChange('name', e.target.value)} placeholder="Contact name" />
+          </label>
+          <label>
+            Role
+            <select value={contactForm.role} onChange={(e) => handleContactChange('role', e.target.value as ContactRole)}>
+              <option value="buyer">Buyer</option>
+              <option value="seller">Seller</option>
+              <option value="notaire">Notaire</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>
+            Email
+            <input type="email" value={contactForm.email} onChange={(e) => handleContactChange('email', e.target.value)} placeholder="Email address" />
+          </label>
+          <label>
+            Phone
+            <input value={contactForm.phone} onChange={(e) => handleContactChange('phone', e.target.value)} placeholder="Phone number" />
+          </label>
+        </div>
+      </section>
+
+      {/* ── Contact list ── */}
+      <section className="card" style={{ paddingBottom: 0 }}>
+        <h2>Contact list</h2>
+        <div className="table-wrap">
+          <table className="deal-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contacts.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="empty-row">
+                    <div className="empty-state">
+                      <strong>No contacts yet</strong>
+                      <span>Save your first contact above and link them to a deal.</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                contacts.map((contact) => (
+                  <tr key={contact.id}>
+                    <td>{contact.name}</td>
+                    <td>{roleLabel(contact.role)}</td>
+                    <td>{contact.email || '-'}</td>
+                    <td>{contact.phone || '-'}</td>
+                    <td>
+                      <button type="button" className="tiny-button" onClick={() => selectContact(contact.id)}>
+                        Edit
+                      </button>
+                      <button type="button" className="tiny-button danger" onClick={() => requestDeleteContact(contact.id)}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ── Summary export ── */}
       <section className="card export-card">
         <h2>Summary export</h2>
         <p>Copy a quick shareable summary for clients, notaire, or your own follow-up notes.</p>

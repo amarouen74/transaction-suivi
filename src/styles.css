@@ -402,6 +402,16 @@ button.danger:hover {
   background: #1541a0;
 }
 
+.demo-note {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #fff9e6;
+  border-radius: 12px;
+  color: #7b5e1d;
+  font-size: 0.9rem;
+  max-width: 100%;
+}
+
 /* ── User toolbar ── */
 .user-toolbar {
   display: flex;
