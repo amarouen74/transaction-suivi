@@ -47,6 +47,52 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   const daysToSale = daysBetween(milestones.saleDate);
   const daysToWithdrawal = daysBetween(milestones.withdrawalDeadline);
 
+  // Overdue warnings (highest priority)
+  if (transaction.loanStatus === 'pending' && daysToLoan < 0) {
+    items.push(normalizeReminder(
+      transaction,
+      `⚠️ Loan deadline OVERDUE by ${Math.abs(daysToLoan)} day(s)`,
+      milestones.loanApprovalDeadline,
+      'buyer',
+      buyer?.name,
+      buyer?.email
+    ));
+  }
+
+  if (transaction.documentStatus === 'missing' && daysToDocs < 0) {
+    items.push(normalizeReminder(
+      transaction,
+      `⚠️ Document deadline OVERDUE by ${Math.abs(daysToDocs)} day(s)`,
+      milestones.documentDeadline,
+      'notaire',
+      notaire?.name,
+      notaire?.email
+    ));
+  }
+
+  if (daysToWithdrawal < 0) {
+    items.push(normalizeReminder(
+      transaction,
+      `⚠️ Legal withdrawal deadline OVERDUE by ${Math.abs(daysToWithdrawal)} day(s)`,
+      milestones.withdrawalDeadline,
+      'buyer',
+      buyer?.name,
+      buyer?.email
+    ));
+  }
+
+  if (daysToSale < 0) {
+    items.push(normalizeReminder(
+      transaction,
+      `⚠️ Acte de vente date has passed (${milestones.saleDate})`,
+      milestones.saleDate,
+      'seller',
+      seller?.name,
+      seller?.email
+    ));
+  }
+
+  // Upcoming warnings
   if (transaction.loanStatus === 'pending' && daysToLoan <= 7 && daysToLoan >= 0) {
     items.push(normalizeReminder(
       transaction,

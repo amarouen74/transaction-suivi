@@ -44,6 +44,13 @@ export const buildReminders = (transaction: Transaction) => {
   const daysToWithdrawal = daysBetween(milestones.withdrawalDeadline);
   const daysToDocs = daysBetween(milestones.documentDeadline);
 
+  // Overdue warnings (highest priority)
+  addIf(transaction.loanStatus === 'pending' && daysToLoan < 0, `⚠️ Loan deadline OVERDUE by ${Math.abs(daysToLoan)} day(s)`);
+  addIf(transaction.documentStatus === 'missing' && daysToDocs < 0, `⚠️ Document deadline OVERDUE by ${Math.abs(daysToDocs)} day(s)`);
+  addIf(daysToWithdrawal < 0, `⚠️ Legal withdrawal deadline OVERDUE by ${Math.abs(daysToWithdrawal)} day(s)`);
+  addIf(daysToSale < 0, `⚠️ Acte de vente date has passed (${milestones.saleDate})`);
+
+  // Upcoming warnings
   addIf(transaction.loanStatus === 'pending' && daysToLoan <= 7 && daysToLoan >= 0, `Loan deadline in ${daysToLoan} day(s)`);
   addIf(transaction.loanStatus === 'refused', 'Loan has been refused — review deal or find alternatives');
   addIf(transaction.loanStatus === 'approved' && daysToLoan > 0, 'Loan approved, continue progress checks');
@@ -86,7 +93,7 @@ export const getDealStatus = (transaction: Transaction): DealStatus => {
 };
 
 export const statusLabelClass = (status: DealStatus) => {
-  if (status === 'at risk') return 'badge-warning';
+  if (status === 'at risk') return 'badge-danger';
   if (status === 'closing soon') return 'badge-warning';
   if (status === 'completed') return 'badge-good';
   return 'badge-good';

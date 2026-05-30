@@ -139,6 +139,11 @@ button:hover {
   color: #7b4e1d;
 }
 
+.badge-danger {
+  background: #ffe8e8;
+  color: #9f2d2d;
+}
+
 /* ── Notification with error variant ── */
 .notification-error {
   background: #ffe8e8 !important;
