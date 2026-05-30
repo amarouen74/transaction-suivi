@@ -107,6 +107,7 @@ const demoContacts: Contact[] = [
 
 function App() {
   const [user, setUser] = useState<any | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
   const [authMode, setAuthMode] = useState<'signIn' | 'signUp'>('signIn');
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -140,6 +141,8 @@ function App() {
   };
 
   useEffect(() => {
+    if (!supabaseReady) return;
+
     getSession().then((session) => {
       if (session?.user) {
         setUser(session.user);
@@ -147,7 +150,7 @@ function App() {
       }
     });
 
-    const { data } = onAuthStateChange((event, session) => {
+    const authListener = onAuthStateChange((event, session) => {
       if (session?.user) {
         setUser(session.user);
         loadData(session.user.id);
@@ -161,7 +164,7 @@ function App() {
       }
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => authListener?.data?.subscription?.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -280,8 +283,11 @@ function App() {
   };
 
   const logout = async () => {
-    await signOut();
+    if (supabaseReady && user) {
+      await signOut();
+    }
     setUser(null);
+    setDemoMode(false);
     setTransactions([]);
     setContacts([]);
     setTransaction(makeEmptyTransaction());
@@ -291,11 +297,6 @@ function App() {
   };
 
   const saveTransaction = async () => {
-    if (!user) {
-      notify('Please sign in before saving deals.', 'error');
-      return;
-    }
-
     if (!transaction.property.trim() || !transaction.buyer.trim() || !transaction.seller.trim()) {
       notify('Property, buyer, and seller are required.', 'error');
       return;
@@ -305,13 +306,25 @@ function App() {
     setNotification(null);
 
     try {
-      const result = await saveDeal(transaction, user.id);
-      setTransactions((current) => {
-        if (selectedDealId) {
-          return current.map((item) => (item.id === selectedDealId ? result : item));
-        }
-        return [result, ...current];
-      });
+      if (user && !demoMode) {
+        const result = await saveDeal(transaction, user.id);
+        setTransactions((current) => {
+          if (selectedDealId) {
+            return current.map((item) => (item.id === selectedDealId ? result : item));
+          }
+          return [result, ...current];
+        });
+      } else {
+        // Demo mode — save locally
+        const localId = transaction.id || `demo-${Date.now()}`;
+        const localDeal = { ...transaction, id: localId };
+        setTransactions((current) => {
+          if (selectedDealId) {
+            return current.map((item) => (item.id === selectedDealId ? localDeal : item));
+          }
+          return [localDeal, ...current];
+        });
+      }
       notify(selectedDealId ? 'Deal updated.' : 'Deal saved.', 'success');
       resetDealForm();
     } catch (error) {
@@ -322,18 +335,34 @@ function App() {
   };
 
   const saveQuickDeal = async () => {
-    if (!user || !quickData.property.trim() || !quickData.buyer.trim() || !quickData.seller.trim()) return;
+    if (!quickData.property.trim() || !quickData.buyer.trim() || !quickData.seller.trim()) {
+      notify('Property, buyer, and seller are required.', 'error');
+      return;
+    }
+
     setLoading(true);
     try {
-      const deal: Transaction = {
-        ...makeEmptyTransaction(),
-        property: quickData.property,
-        buyer: quickData.buyer,
-        seller: quickData.seller,
-        price: quickData.price,
-      };
-      const result = await saveDeal(deal, user.id);
-      setTransactions((current) => [result, ...current]);
+      if (user && !demoMode) {
+        const deal: Transaction = {
+          ...makeEmptyTransaction(),
+          property: quickData.property,
+          buyer: quickData.buyer,
+          seller: quickData.seller,
+          price: quickData.price,
+        };
+        const result = await saveDeal(deal, user.id);
+        setTransactions((current) => [result, ...current]);
+      } else {
+        const localDeal: Transaction = {
+          ...makeEmptyTransaction(),
+          id: `demo-${Date.now()}`,
+          property: quickData.property,
+          buyer: quickData.buyer,
+          seller: quickData.seller,
+          price: quickData.price,
+        };
+        setTransactions((current) => [localDeal, ...current]);
+      }
       setQuickData({ property: '', buyer: '', seller: '', price: 0 });
       notify('Deal saved! You can edit details below.', 'success');
     } catch (error) {
@@ -344,11 +373,6 @@ function App() {
   };
 
   const saveContactForm = async () => {
-    if (!user) {
-      notify('Please sign in before saving contacts.', 'error');
-      return;
-    }
-
     if (!contactForm.name.trim()) {
       notify('Contact name is required.', 'error');
       return;
@@ -358,13 +382,24 @@ function App() {
     setNotification(null);
 
     try {
-      const result = await saveContactApi(contactForm, user.id);
-      setContacts((current) => {
-        if (selectedContactId) {
-          return current.map((item) => (item.id === selectedContactId ? result : item));
-        }
-        return [result, ...current];
-      });
+      if (user && !demoMode) {
+        const result = await saveContactApi(contactForm, user.id);
+        setContacts((current) => {
+          if (selectedContactId) {
+            return current.map((item) => (item.id === selectedContactId ? result : item));
+          }
+          return [result, ...current];
+        });
+      } else {
+        const localId = contactForm.id || `demo-contact-${Date.now()}`;
+        const localContact = { ...contactForm, id: localId };
+        setContacts((current) => {
+          if (selectedContactId) {
+            return current.map((item) => (item.id === selectedContactId ? localContact : item));
+          }
+          return [localContact, ...current];
+        });
+      }
       notify(selectedContactId ? 'Contact updated.' : 'Contact saved.', 'success');
       resetContactForm();
     } catch (error) {
@@ -394,16 +429,20 @@ function App() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteConfirm || !user) return;
+    if (!deleteConfirm) return;
 
     try {
       if (deleteConfirm.type === 'deal') {
-        await deleteDealApi(deleteConfirm.id, user.id);
+        if (user && !demoMode) {
+          await deleteDealApi(deleteConfirm.id, user.id);
+        }
         setTransactions((current) => current.filter((item) => item.id !== deleteConfirm.id));
         if (selectedDealId === deleteConfirm.id) resetDealForm();
         notify('Deal removed.', 'success');
       } else {
-        await deleteContactApi(deleteConfirm.id, user.id);
+        if (user && !demoMode) {
+          await deleteContactApi(deleteConfirm.id, user.id);
+        }
         setContacts((current) => current.filter((item) => item.id !== deleteConfirm.id));
         if (selectedContactId === deleteConfirm.id) resetContactForm();
         notify('Contact removed.', 'success');
@@ -476,19 +515,28 @@ function App() {
     notify('Demo data loaded! ⚠️ This is a preview — data will disappear on refresh.', 'success');
   };
 
-  const hasRealData = user && (transactions.length > 0 || contacts.length > 0);
+  const hasRealData = (user && (transactions.length > 0 || contacts.length > 0)) || demoMode;
 
-  // ── Setup required screen ──
-  if (!supabaseReady) {
+  // ── Setup or Demo screen ──
+  if (!supabaseReady && !demoMode) {
     return (
       <div className="page-shell">
         <header>
           <h1>Transaction Suivi</h1>
+          <p>Real estate deal tracking app — manage deals, contacts, and deadlines.</p>
         </header>
         <section className="card auth-card">
-          <h2>Setup Required</h2>
-          <p>This app needs Supabase credentials to run.</p>
-          <ol style={{ marginTop: 16, lineHeight: 2 }}>
+          <h2>Get started</h2>
+          <p>Try the app instantly with sample data, or set up Supabase for persistent storage.</p>
+          <div className="form-actions" style={{ justifyContent: 'flex-start', marginTop: 20 }}>
+            <button type="button" className="demo-button" onClick={() => { setDemoMode(true); seedDemoData(); }}>
+              Try demo (no account needed)
+            </button>
+          </div>
+          <hr style={{ margin: '24px 0', border: 'none', borderTop: '1px solid #eef1f7' }} />
+          <h2>Supabase setup</h2>
+          <p>To persist data permanently, configure Supabase credentials:</p>
+          <ol style={{ marginTop: 12, lineHeight: 2 }}>
             <li>Create a <strong>.env</strong> file in the project root.</li>
             <li>Add your Supabase project URL and anon key:</li>
           </ol>
@@ -504,8 +552,8 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
     );
   }
 
-  // ── Auth screen ──
-  if (!user) {
+  // ── Auth screen (only shown when Supabase is configured) ──
+  if (!user && !demoMode) {
     return (
       <div className="page-shell">
         <header>
@@ -535,6 +583,11 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
               {authMode === 'signIn' ? 'Create account' : 'Already have an account?'}
             </button>
           </div>
+          <div style={{ marginTop: 16 }}>
+            <button type="button" className="secondary" onClick={() => { setDemoMode(true); seedDemoData(); }}>
+              Skip — try demo data
+            </button>
+          </div>
           {notification && <div className={`notification ${notification.type === 'error' ? 'notification-error' : ''}`}>{notification.message}</div>}
         </section>
       </div>
@@ -548,9 +601,15 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
         <h1>Transaction Suivi</h1>
         <p>Manage multiple real estate deals with saved contacts, linked deals, and reminders.</p>
         <div className="user-toolbar">
-          <span>Signed in as {user?.email}</span>
+          {user ? (
+            <span>Signed in as {user?.email}</span>
+          ) : demoMode ? (
+            <span className="badge-warning" style={{ padding: '4px 12px', borderRadius: 999, fontSize: '0.85rem', fontWeight: 700 }}>
+              ⚡ Demo mode
+            </span>
+          ) : null}
           <button type="button" className="secondary" onClick={logout} disabled={loading}>
-            Sign out
+            Exit demo
           </button>
         </div>
         {loading && <div className="notification">Loading...</div>}
@@ -616,11 +675,12 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
           <input
             type="number"
             min="0"
-            value={quickData.price || ''}
+            value={quickData.price === 0 ? 0 : quickData.price || ''}
             onChange={(e) => setQuickData({ ...quickData, price: Number(e.target.value) })}
             placeholder="Price (€)"
           />
           <button
+            type="button"
             onClick={saveQuickDeal}
             disabled={loading || !quickData.property.trim() || !quickData.buyer.trim() || !quickData.seller.trim()}
           >
@@ -737,11 +797,12 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
           </div>
         </div>
 
-        {!selectedDealId && !transaction.property && !transaction.buyer && !transaction.seller ? (
+        {!selectedDealId && (
           <p className="empty-state" style={{ marginTop: 12, textAlign: 'left', padding: 0 }}>
-            Select a deal from the dashboard to edit its details, or use the quick-add above.
+            Select a deal from the dashboard to edit its details, or fill in the fields below to create a new one.
           </p>
-        ) : (
+        )}
+        {(!selectedDealId || transaction.property || transaction.buyer || transaction.seller) && (
           <div className="field-grid">
             <label>
               Property

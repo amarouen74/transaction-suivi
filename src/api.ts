@@ -92,7 +92,7 @@ export const saveDeal = async (deal: Transaction, userId: string) => {
   const sb = requireSupabase();
   const payload = { ...transactionPayload(deal), user_id: userId };
   const query = deal.id
-    ? sb.from('transactions').update(payload).eq('id', deal.id).eq('user_id', userId).single()
+    ? sb.from('transactions').update(payload).eq('id', deal.id).eq('user_id', userId).select().single()
     : sb.from('transactions').insert(payload).select().single();
 
   const { data, error } = await query;
@@ -118,12 +118,16 @@ export const fetchContacts = async (userId: string) => {
   return (data ?? []).map(mapContact);
 };
 
+const contactPayload = (contact: Contact) => {
+  const { id, ...rest } = contact;
+  return rest;
+};
+
 export const saveContact = async (contact: Contact, userId: string) => {
   const sb = requireSupabase();
-  const payload = { ...contact, user_id: userId };
   const query = contact.id
-    ? sb.from('contacts').update(payload).eq('id', contact.id).eq('user_id', userId).single()
-    : sb.from('contacts').insert(payload).select().single();
+    ? sb.from('contacts').update({ ...contactPayload(contact), user_id: userId }).eq('id', contact.id).eq('user_id', userId).select().single()
+    : sb.from('contacts').insert({ ...contactPayload(contact), user_id: userId }).select().single();
 
   const { data, error } = await query;
   if (error) throw error;
