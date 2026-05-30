@@ -133,8 +133,9 @@ function App() {
       const [deals, savedContacts] = await Promise.all([fetchDeals(userId), fetchContacts(userId)]);
       setTransactions(deals);
       setContacts(savedContacts);
-    } catch (error) {
-      notify(`Unable to load backend data: ${error}`, 'error');
+    } catch (error: any) {
+      const message = error?.message || error?.error_description || JSON.stringify(error);
+      notify(`Unable to load backend data: ${message}`, 'error');
     } finally {
       setLoading(false);
     }
