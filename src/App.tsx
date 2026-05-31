@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { jsPDF } from 'jspdf';
 import { buildMilestones, buildReminders, buildSummary, determineRisk, getDealStatus, statusLabelClass } from './utils';
 import { collectReminders } from './reminderEngine';
 import type { Contact, ContactRole, DealStatus, DocumentStatus, LoanStatus, NotaireStatus, ReminderItem, Transaction } from './types';
@@ -241,6 +242,36 @@ function App() {
     if ('Notification' in window && notificationPermission === 'granted') { new Notification(`Rappel: ${reminder.property}`, { body: `${reminder.message} (échéance ${reminder.dueDate})`, silent: true }); notify('Notification envoyée.', 'success'); return; }
     notify('Autorisez les notifications pour utiliser cette fonction.', 'error');
   };
+  const generatePDF = () => {
+    if (!transaction.property) { notify('Sélectionnez un dossier avec un bien pour générer le PDF.', 'error'); return; }
+    try {
+      const doc = new jsPDF();
+      const mils = buildMilestones(transaction);
+      doc.setFontSize(18); doc.text('Transaction Suivi — Timeline', 20, 30);
+      doc.setFontSize(12); doc.text(`Bien: ${transaction.property}`, 20, 45);
+      doc.text(`Prix: ${transaction.price.toLocaleString()} €`, 20, 53);
+      doc.text(`Acheteur: ${transaction.buyer}`, 20, 61);
+      doc.text(`Vendeur: ${transaction.seller}`, 20, 69);
+      doc.setFontSize(14); doc.text('📅 Échéances légales', 20, 85);
+      doc.setFontSize(11);
+      const items = [
+        ['Compromis signé', transaction.compromisDate, '✅'],
+        ['Délai de rétractation (J+10)', mils.withdrawalDeadline, '✅'],
+        ['Documents notaire (J+30)', mils.documentDeadline, '📄'],
+        ['Condition suspensive prêt (J+45)', mils.loanApprovalDeadline, '🏦'],
+        ['Signature acte de vente (J+90)', mils.saleDate, '📅'],
+      ];
+      items.forEach(([label, date, icon], i) => {
+        doc.text(`${icon} ${label}: ${date}`, 20, 97 + i * 10);
+      });
+      doc.setFontSize(10); doc.text('Généré par Transaction Suivi — Conforme au droit immobilier français', 20, 170);
+      doc.save(`timeline-${transaction.property.slice(0, 15).replace(/\s/g, '_')}.pdf`);
+      notify('📄 PDF de la timeline téléchargé !', 'success');
+    } catch (e) {
+      notify('Erreur lors de la génération du PDF.', 'error');
+    }
+  };
+
   const contactOptions = (role: ContactRole) => contacts.filter((item) => item.role === role || item.role === 'other');
 
   const seedDemoData = () => {
@@ -639,7 +670,7 @@ function App() {
         </div>
       </section>
 
-      <section className="card export-card"><h2>Export</h2><p>Copiez un résumé pour votre client ou notaire.</p><button onClick={copySummary}>📋 Copier le résumé</button></section>
+      <section className="card export-card"><h2>Export</h2><p>Copiez un résumé ou générez un PDF de la timeline pour votre client ou notaire.</p><div className="form-actions" style={{ justifyContent: 'flex-start' }}><button onClick={copySummary}>📋 Copier le résumé</button><button onClick={generatePDF} className="secondary">📄 Télécharger la timeline (PDF)</button></div></section>
     </div>
   );
 }
