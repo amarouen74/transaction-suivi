@@ -277,6 +277,8 @@ function App() {
   const seedDemoData = () => {
     setTransactions(demoTransactions); setContacts(demoContacts);
     resetDealForm(); resetContactForm(); setFilter('all'); setSearchQuery(''); setNotification(null);
+    // Auto-select the Nice deal (demo-1)
+    selectTransaction(demoTransactions[0].id);
     notify('Données de démo chargées ! ⚠️ Elles disparaîtront après rafraîchissement.', 'success');
   };
 

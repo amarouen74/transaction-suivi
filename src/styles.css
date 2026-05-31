@@ -106,40 +106,40 @@ button:hover { background: #047857; }
 .lp-nav-login:hover { border-color: var(--gray-500); }
 
 /* Hero */
-.lp-hero { position: relative; padding: 80px 0 60px; background: linear-gradient(135deg, #0c1f36 0%, #1a3655 100%); overflow: hidden; }
+.lp-hero { position: relative; padding: 100px 0 80px; background: linear-gradient(135deg, #0c1f36 0%, #1a3655 100%); overflow: hidden; }
 .lp-hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 70% 30%, rgba(5,150,99,0.12) 0%, transparent 60%), radial-gradient(ellipse at 30% 70%, rgba(255,255,255,0.04) 0%, transparent 50%); }
-.lp-hero .lp-container { position: relative; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 60px; align-items: center; }
-.lp-hero-badge { display: inline-block; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75); padding: 5px 12px; border-radius: 999px; font-size: 0.8rem; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.12); letter-spacing: 0.02em; }
-.lp-hero-title { font-size: clamp(2.4rem, 4.5vw, 3.2rem); font-weight: 800; color: #fff; margin: 0 0 16px; line-height: 1.1; letter-spacing: -0.02em; }
-.lp-hero-sub { font-size: 1.05rem; color: rgba(255,255,255,0.6); line-height: 1.6; margin: 0 0 28px; max-width: 480px; }
-.lp-hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
-.lp-hero-trust { display: flex; gap: 16px; margin-top: 24px; flex-wrap: wrap; }
-.lp-hero-trust span { color: rgba(255,255,255,0.4); font-size: 0.8rem; }
+.lp-hero .lp-container { position: relative; display: grid; grid-template-columns: 1fr 0.9fr; gap: 80px; align-items: center; }
+.lp-hero-badge { display: inline-block; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75); padding: 6px 14px; border-radius: 999px; font-size: 0.85rem; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.12); letter-spacing: 0.02em; }
+.lp-hero-title { font-size: clamp(2.6rem, 4.8vw, 3.4rem); font-weight: 800; color: #fff; margin: 0 0 20px; line-height: 1.08; letter-spacing: -0.025em; }
+.lp-hero-sub { font-size: 1.1rem; color: rgba(255,255,255,0.55); line-height: 1.6; margin: 0 0 32px; max-width: 500px; }
+.lp-hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+.lp-hero-trust { display: flex; gap: 18px; margin-top: 28px; flex-wrap: wrap; }
+.lp-hero-trust span { color: rgba(255,255,255,0.4); font-size: 0.85rem; }
 
 /* Hero mockup */
 .lp-mockup { position: relative; }
-.lp-mockup-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 24px 80px rgba(0,0,0,0.3); }
-.lp-mockup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.lp-mockup-header h3 { margin: 0; font-size: 1rem; color: var(--gray-900); }
-.lp-mockup-header span { background: #d1fae5; color: #065f46; padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+.lp-mockup-card { background: #fff; border-radius: 16px; padding: 28px; box-shadow: 0 32px 100px rgba(0,0,0,0.35); }
+.lp-mockup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+.lp-mockup-header h3 { margin: 0; font-size: 1.05rem; color: var(--gray-900); font-weight: 700; }
+.lp-mockup-header span { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
 .lp-mockup-timeline { }
-.lp-mockup-step { display: flex; align-items: center; gap: 12px; padding: 8px 0; position: relative; border-left: 2px solid var(--gray-200); padding-left: 16px; }
+.lp-mockup-step { display: flex; align-items: center; gap: 14px; padding: 10px 0; position: relative; border-left: 2px solid var(--gray-200); padding-left: 18px; }
 .lp-mockup-step:last-child { border-left-color: transparent; }
 .lp-mockup-dot { position: absolute; left: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--gray-200); }
-.lp-mockup-step.past .lp-mockup-dot { background: var(--emerald); }
-.lp-mockup-step.active .lp-mockup-dot { background: var(--amber); width: 10px; height: 10px; left: -6px; }
+.lp-mockup-step.past .lp-mockup-dot { background: var(--emerald); width: 10px; height: 10px; left: -6px; }
+.lp-mockup-step.active .lp-mockup-dot { background: var(--amber); width: 12px; height: 12px; left: -7px; }
 .lp-mockup-step div { flex: 1; }
-.lp-mockup-step strong { display: block; font-size: 0.85rem; color: var(--gray-900); }
-.lp-mockup-step span { font-size: 0.75rem; color: var(--gray-500); }
+.lp-mockup-step strong { display: block; font-size: 0.9rem; color: var(--gray-900); }
+.lp-mockup-step span { font-size: 0.8rem; color: var(--gray-500); }
 .lp-mockup-pulse { animation: pulse 2s infinite; }
 
-/* Buttons */
-.lp-btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; text-decoration: none; white-space: nowrap; }
-.lp-btn-primary { background: var(--emerald); color: #fff; border-color: var(--emerald); }
-.lp-btn-primary:hover { background: #047857; border-color: #047857; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(5,150,99,0.3); }
-.lp-btn-secondary { background: transparent; color: #fff; border-color: rgba(255,255,255,0.25); }
-.lp-btn-secondary:hover { border-color: rgba(255,255,255,0.5); }
-.lp-btn-outline { background: transparent; color: var(--gray-700); border-color: var(--gray-200); }
+/* Buttons with glow */
+.lp-btn { display: inline-flex; align-items: center; gap: 10px; padding: 16px 32px; border-radius: 14px; font-size: 1.05rem; font-weight: 700; cursor: pointer; border: 2px solid transparent; transition: all 0.25s cubic-bezier(0.4,0,0.2,1); text-decoration: none; white-space: nowrap; }
+.lp-btn-primary { background: var(--emerald); color: #fff; border-color: var(--emerald); box-shadow: 0 0 24px rgba(16,185,129,0.25); }
+.lp-btn-primary:hover { background: #059669; border-color: #059669; transform: translateY(-2px); box-shadow: 0 0 40px rgba(16,185,129,0.4); }
+.lp-btn-secondary { background: transparent; color: #fff; border-color: rgba(255,255,255,0.3); }
+.lp-btn-secondary:hover { border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.06); }
+.lp-btn-outline { background: transparent; color: var(--gray-700); border-color: var(--gray-200); padding: 14px 28px; font-size: 1rem; }
 .lp-btn-outline:hover { border-color: var(--gray-500); }
 
 .lp-section { padding: 80px 0; }
