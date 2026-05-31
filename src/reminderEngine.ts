@@ -47,11 +47,11 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   const daysToSale = daysBetween(milestones.saleDate);
   const daysToWithdrawal = daysBetween(milestones.withdrawalDeadline);
 
-  // Overdue warnings (highest priority)
+  // 🔴 Critical overdue warnings
   if (transaction.loanStatus === 'pending' && daysToLoan < 0) {
     items.push(normalizeReminder(
       transaction,
-      `⚠️ Loan deadline OVERDUE by ${Math.abs(daysToLoan)} day(s)`,
+      `🔴 Condition suspensive de prêt EXPIRÉE depuis ${Math.abs(daysToLoan)} jour(s) — Votre commission est menacée !`,
       milestones.loanApprovalDeadline,
       'buyer',
       buyer?.name,
@@ -62,7 +62,7 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   if (transaction.documentStatus === 'missing' && daysToDocs < 0) {
     items.push(normalizeReminder(
       transaction,
-      `⚠️ Document deadline OVERDUE by ${Math.abs(daysToDocs)} day(s)`,
+      `🔴 Documents notaire EN RETARD de ${Math.abs(daysToDocs)} jour(s) — Relancez immédiatement`,
       milestones.documentDeadline,
       'notaire',
       notaire?.name,
@@ -73,7 +73,7 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   if (daysToWithdrawal < 0) {
     items.push(normalizeReminder(
       transaction,
-      `ℹ️ Legal withdrawal period ended ${Math.abs(daysToWithdrawal)} day(s) ago — deal is now secure`,
+      `✅ Délai de rétractation purgé depuis ${Math.abs(daysToWithdrawal)} jour(s) — Deal sécurisé`,
       milestones.withdrawalDeadline,
       'buyer',
       buyer?.name,
@@ -84,7 +84,7 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   if (daysToSale < 0) {
     items.push(normalizeReminder(
       transaction,
-      `⚠️ Acte de vente date has passed (${milestones.saleDate})`,
+      `🔴 Date de signature chez le notaire DÉPASSÉE (${milestones.saleDate})`,
       milestones.saleDate,
       'seller',
       seller?.name,
@@ -92,11 +92,22 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
     ));
   }
 
-  // Upcoming warnings
+  // 🟡 Upcoming warnings / 🔴 J-2 critical
   if (transaction.loanStatus === 'pending' && daysToLoan <= 7 && daysToLoan >= 0) {
     items.push(normalizeReminder(
       transaction,
-      `Loan deadline in ${daysToLoan} day(s)`,
+      `🟡 Condition suspensive de prêt échéance dans ${daysToLoan} jour(s)`,
+      milestones.loanApprovalDeadline,
+      'buyer',
+      buyer?.name,
+      buyer?.email
+    ));
+  }
+
+  if (transaction.loanStatus === 'pending' && daysToLoan <= 2 && daysToLoan >= 0) {
+    items.push(normalizeReminder(
+      transaction,
+      `🔴 J-${daysToLoan} avant caducité du prêt — Agissez immédiatement !`,
       milestones.loanApprovalDeadline,
       'buyer',
       buyer?.name,
@@ -107,7 +118,7 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   if (transaction.loanStatus === 'refused') {
     items.push(normalizeReminder(
       transaction,
-      'Loan has been refused — review deal or find alternatives',
+      '🔴 Prêt refusé — Trouver une alternative ou le deal est perdu',
       milestones.loanApprovalDeadline,
       'buyer',
       buyer?.name,
@@ -118,7 +129,7 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   if (transaction.documentStatus === 'missing') {
     items.push(normalizeReminder(
       transaction,
-      'Missing bank or notaire documents',
+      '🟡 Documents bancaires ou notaire manquants',
       milestones.documentDeadline,
       'buyer',
       buyer?.name,
@@ -129,7 +140,7 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   if (daysToDocs <= 7 && daysToDocs >= 0) {
     items.push(normalizeReminder(
       transaction,
-      `Notaire documents deadline in ${daysToDocs} day(s)`,
+      `🟡 Échéance documents notaire dans ${daysToDocs} jour(s)`,
       milestones.documentDeadline,
       'notaire',
       notaire?.name,
@@ -140,7 +151,7 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   if (daysToSale <= 14 && daysToSale >= 0) {
     items.push(normalizeReminder(
       transaction,
-      `Acte de vente scheduled in ${daysToSale} day(s)`,
+      `🟡 Signature acte de vente prévue dans ${daysToSale} jour(s)`,
       milestones.saleDate,
       'seller',
       seller?.name,
@@ -151,7 +162,7 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   if (daysToWithdrawal <= 3 && daysToWithdrawal >= 0) {
     items.push(normalizeReminder(
       transaction,
-      `Legal withdrawal deadline in ${daysToWithdrawal} day(s)`,
+      `🟡 Fin du délai de rétractation dans ${daysToWithdrawal} jour(s)`,
       milestones.withdrawalDeadline,
       'buyer',
       buyer?.name,

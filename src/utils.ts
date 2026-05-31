@@ -44,22 +44,23 @@ export const buildReminders = (transaction: Transaction) => {
   const daysToWithdrawal = daysBetween(milestones.withdrawalDeadline);
   const daysToDocs = daysBetween(milestones.documentDeadline);
 
-  // Overdue warnings (highest priority)
-  addIf(transaction.loanStatus === 'pending' && daysToLoan < 0, `⚠️ Loan deadline OVERDUE by ${Math.abs(daysToLoan)} day(s)`);
-  addIf(transaction.documentStatus === 'missing' && daysToDocs < 0, `⚠️ Document deadline OVERDUE by ${Math.abs(daysToDocs)} day(s)`);
-  addIf(daysToWithdrawal < 0, `ℹ️ Legal withdrawal period ended ${Math.abs(daysToWithdrawal)} day(s) ago — deal is now secure`);
-  addIf(daysToSale < 0, `⚠️ Acte de vente date has passed (${milestones.saleDate})`);
+  // 🔴 Critical overdue warnings
+  addIf(transaction.loanStatus === 'pending' && daysToLoan < 0, `🔴 Condition suspensive de prêt EXPIRÉE depuis ${Math.abs(daysToLoan)} jour(s) — Votre commission est menacée !`);
+  addIf(transaction.documentStatus === 'missing' && daysToDocs < 0, `🔴 Documents notaire EN RETARD de ${Math.abs(daysToDocs)} jour(s)`);
+  addIf(daysToWithdrawal < 0, `✅ Délai de rétractation purgé depuis ${Math.abs(daysToWithdrawal)} jour(s) — Le deal est sécurisé`);
+  addIf(daysToSale < 0, `🔴 Date de signature chez le notaire DÉPASSÉE (${milestones.saleDate})`);
 
-  // Upcoming warnings
-  addIf(transaction.loanStatus === 'pending' && daysToLoan <= 7 && daysToLoan >= 0, `Loan deadline in ${daysToLoan} day(s)`);
-  addIf(transaction.loanStatus === 'refused', 'Loan has been refused — review deal or find alternatives');
-  addIf(transaction.loanStatus === 'approved' && daysToLoan > 0, 'Loan approved, continue progress checks');
-  addIf(transaction.documentStatus === 'missing', 'Missing bank or notaire documents');
-  addIf(daysToDocs <= 7 && daysToDocs >= 0, `Notaire documents deadline in ${daysToDocs} day(s)`);
-  addIf(daysToSale <= 14 && daysToSale >= 0, `Acte de vente scheduled in ${daysToSale} day(s)`);
-  addIf(daysToWithdrawal <= 3 && daysToWithdrawal >= 0, `Legal withdrawal deadline in ${daysToWithdrawal} day(s)`);
+  // 🟡 Approaching deadlines
+  addIf(transaction.loanStatus === 'pending' && daysToLoan <= 7 && daysToLoan >= 0, `🟡 Condition suspensive de prêt échéance dans ${daysToLoan} jour(s)`);
+  addIf(transaction.loanStatus === 'pending' && daysToLoan <= 2 && daysToLoan >= 0, `🔴 J-${daysToLoan} avant caducité du prêt — Agissez immédiatement !`);
+  addIf(transaction.loanStatus === 'refused', '🔴 Prêt refusé — Trouver une alternative ou le deal est perdu');
+  addIf(transaction.loanStatus === 'approved' && daysToLoan > 0, '✅ Accord de principe obtenu — Continuer le suivi');
+  addIf(transaction.documentStatus === 'missing', '🟡 Documents bancaires ou notaire manquants');
+  addIf(daysToDocs <= 7 && daysToDocs >= 0, `🟡 Échéance documents notaire dans ${daysToDocs} jour(s)`);
+  addIf(daysToSale <= 14 && daysToSale >= 0, `🟡 Signature acte de vente prévue dans ${daysToSale} jour(s)`);
+  addIf(daysToWithdrawal <= 3 && daysToWithdrawal >= 0, `🟡 Fin du délai de rétractation dans ${daysToWithdrawal} jour(s)`);
 
-  return reminders.length ? reminders : ['No urgent reminders. Transaction is stable for now.'];
+  return reminders.length ? reminders : ['✅ Aucune urgence — Transaction stable.'];
 };
 
 export const determineRisk = (transaction: Transaction) => {
