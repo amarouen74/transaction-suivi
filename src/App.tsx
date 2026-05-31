@@ -258,11 +258,14 @@ function App() {
         <div className="lp-nav">
           <div className="lp-nav-inner">
             <span className="lp-logo">🏡 Transaction Suivi</span>
-            <div className="lp-nav-links">
-              <a href="#features" onClick={(e) => { e.preventDefault(); document.getElementById('features')?.scrollIntoView({behavior:'smooth'}); }}>Fonctionnalités</a>
-              <a href="#testimonials" onClick={(e) => { e.preventDefault(); document.getElementById('testimonials')?.scrollIntoView({behavior:'smooth'}); }}>Témoignages</a>
-              <a href="#pricing" onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({behavior:'smooth'}); }}>Tarifs</a>
-              <a href="#faq" onClick={(e) => { e.preventDefault(); document.getElementById('faq')?.scrollIntoView({behavior:'smooth'}); }}>FAQ</a>
+            <div className="lp-nav-right">
+              <div className="lp-nav-links">
+                <a href="#features" onClick={(e) => { e.preventDefault(); document.getElementById('features')?.scrollIntoView({behavior:'smooth'}); }}>Fonctionnalités</a>
+                <a href="#testimonials" onClick={(e) => { e.preventDefault(); document.getElementById('testimonials')?.scrollIntoView({behavior:'smooth'}); }}>Témoignages</a>
+                <a href="#pricing" onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({behavior:'smooth'}); }}>Tarifs</a>
+                <a href="#faq" onClick={(e) => { e.preventDefault(); document.getElementById('faq')?.scrollIntoView({behavior:'smooth'}); }}>FAQ</a>
+              </div>
+              <button className="lp-nav-login" onClick={() => { setDemoMode(true); seedDemoData(); }}>Connexion</button>
             </div>
           </div>
         </div>
@@ -275,7 +278,7 @@ function App() {
               <div className="lp-hero-badge">Conforme au droit immobilier français</div>
               <h1 className="lp-hero-title">Ne perdez plus jamais une commission à cause d'un délai manqué</h1>
               <p className="lp-hero-sub">
-                Du compromis de vente à l'acte définitif : calcul automatique des délais légaux, rappels intelligents et timeline claire. Protégez vos transactions en un clic.
+                Calcul automatique des délais légaux, rappels intelligents et tableau de bord clair. Du compromis à l'acte.
               </p>
               <div className="lp-hero-actions">
                 <button className="lp-btn lp-btn-primary" onClick={() => { setDemoMode(true); seedDemoData(); }}>
@@ -291,28 +294,33 @@ function App() {
                 <span>🇫🇷 Droit français</span>
               </div>
             </div>
-            <div className="lp-hero-visual">
-              <div className="lp-timeline-card">
-                <div className="lp-timeline-header">📋 Appartement Nice — 420 000 €</div>
-                <div className="lp-timeline-step lp-step-past"><div className="lp-step-dot" /> <div><strong>Compromis signé</strong><span>14 mai 2026</span></div> <span className="lp-step-status">✅</span></div>
-                <div className="lp-timeline-step lp-step-past"><div className="lp-step-dot" /> <div><strong>Délai rétractation purgé</strong><span>24 mai 2026</span></div> <span className="lp-step-status">✅</span></div>
-                <div className="lp-timeline-step lp-step-active"><div className="lp-step-dot lp-pulse" /> <div><strong>Prêt — Condition suspensive</strong><span>Échéance dans 31 jours</span></div> <span className="lp-step-status">🟡</span></div>
-                <div className="lp-timeline-step"><div className="lp-step-dot" /> <div><strong>Documents notaire</strong><span>Échéance dans 16 jours</span></div> <span className="lp-step-status">⏳</span></div>
-                <div className="lp-timeline-step"><div className="lp-step-dot" /> <div><strong>Signature acte de vente</strong><span>Prévue le 12 août 2026</span></div> <span className="lp-step-status">📅</span></div>
+            <div className="lp-mockup">
+              <div className="lp-mockup-card">
+                <div className="lp-mockup-header">
+                  <h3>🏠 Appartement — 420 000 €</h3>
+                  <span>En cours</span>
+                </div>
+                <div className="lp-mockup-timeline">
+                  <div className="lp-mockup-step past"><div className="lp-mockup-dot" /> <div><strong>Compromis signé</strong><span>14 mai 2026</span></div> <span>✅</span></div>
+                  <div className="lp-mockup-step past"><div className="lp-mockup-dot" /> <div><strong>Délai rétractation purgé</strong><span>24 mai 2026</span></div> <span>✅</span></div>
+                  <div className="lp-mockup-step active"><div className="lp-mockup-dot lp-mockup-pulse" /> <div><strong>Condition suspensive prêt</strong><span>Échéance dans 31 jours</span></div> <span>🟡</span></div>
+                  <div className="lp-mockup-step"><div className="lp-mockup-dot" /> <div><strong>Documents notaire</strong><span>Échéance dans 16 jours</span></div> <span>📄</span></div>
+                  <div className="lp-mockup-step"><div className="lp-mockup-dot" /> <div><strong>Signature acte de vente</strong><span>Prévue le 12 août 2026</span></div> <span>📅</span></div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         {/* ── La Douleur ── */}
-        <section style={{ padding: '80px 0', background: '#fff' }}>
+        <section className="lp-section lp-section-white">
           <div className="lp-container">
-            <h2 className="lp-section-title">Les 3 mois les plus stressants de votre métier</h2>
-            <p className="lp-section-sub">Entre le compromis et l'acte, des dizaines de délais critiques à surveiller. Un seul oubli peut coûter cher.</p>
+            <h2 className="lp-section-title">3 délais critiques entre le compromis et l'acte</h2>
+            <p className="lp-section-sub">Un seul oubli peut vous coûter votre commission.</p>
             <div className="lp-grid-3">
-              <div className="lp-pain-card"><div className="lp-pain-icon">⏰</div><h3>J-10 : Délai de rétractation</h3><p>L'acheteur peut renoncer sans pénalité. Passé ce délai, la vente est ferme — si vous n'avez pas oublié de le surveiller.</p></div>
-              <div className="lp-pain-card"><div className="lp-pain-icon">🏦</div><h3>J-45 : Condition suspensive de prêt</h3><p>Le délai le plus dangereux. Si le prêt n'est pas obtenu à temps, la vente tombe — et votre commission avec elle. <strong>20% des agents ont déjà perdu une commission comme ça.</strong></p></div>
-              <div className="lp-pain-card"><div className="lp-pain-icon">📄</div><h3>J-30 : Documents notaire</h3><p>Les pièces doivent être chez le notaire avant la signature. Un retard = une signature reportée = un client mécontent.</p></div>
+              <div className="lp-pain-card"><span className="lp-pain-icon">⏰</span><h3>J-10 · Délai de rétractation</h3><p>L'acheteur peut renoncer sans pénalité. Passé ce délai, la vente devient ferme.</p></div>
+              <div className="lp-pain-card"><span className="lp-pain-icon">🏦</span><h3>J-45 · Condition suspensive prêt</h3><p>Si le prêt n'est pas obtenu à temps, la vente tombe — et votre commission aussi. <strong>20% des agents concernés.</strong></p></div>
+              <div className="lp-pain-card"><span className="lp-pain-icon">📄</span><h3>J-30 · Documents notaire</h3><p>Pièces manquantes = signature reportée = client mécontent. Chaque jour compte.</p></div>
             </div>
           </div>
         </section>
