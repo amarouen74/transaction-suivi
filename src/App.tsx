@@ -251,8 +251,8 @@ function App() {
 
   const hasRealData = (user && (transactions.length > 0 || contacts.length > 0)) || demoMode;
 
-  // ── LANDING PAGE (when no supabase & no demo) ──
-  if (!supabaseReady && !demoMode) {
+  // ── LANDING PAGE (always shown first, unless already logged in or demo) ──
+  if (!user && !demoMode) {
     return (
       <div className="lp">
         <div className="lp-nav">
@@ -436,28 +436,6 @@ function App() {
         <div style={{ padding: '32px 0', background: '#0a1a2e', color: 'rgba(255,255,255,0.5)', textAlign: 'center', fontSize: '0.85rem' }}>
           <div className="lp-container">Transaction Suivi © 2026 — Construit pour les agents immobiliers par des agents immobiliers. 🇫🇷</div>
         </div>
-      </div>
-    );
-  }
-
-  // ── Auth screen ──
-  if (!user && !demoMode) {
-    return (
-      <div className="page-shell">
-        <header><h1>Transaction Suivi</h1><p>Connectez-vous pour sauvegarder vos dossiers.</p></header>
-        <section className="card auth-card">
-          <h2>{authMode === 'signIn' ? 'Connexion' : 'Créer un compte'}</h2>
-          <div className="field-grid">
-            <label>Email<input type="email" value={authForm.email} onChange={(e) => handleAuthFormChange('email', e.target.value)} placeholder="vous@example.com" /></label>
-            <label>Mot de passe<input type="password" value={authForm.password} onChange={(e) => handleAuthFormChange('password', e.target.value)} placeholder="Minimum 6 caractères" /></label>
-          </div>
-          <div className="form-actions">
-            <button type="button" onClick={loginUser} disabled={loading}>{loading ? 'Chargement...' : authMode === 'signIn' ? 'Se connecter' : "S'inscrire"}</button>
-            <button type="button" className="secondary" onClick={() => setAuthMode(authMode === 'signIn' ? 'signUp' : 'signIn')}>{authMode === 'signIn' ? 'Créer un compte' : 'Déjà un compte ?'}</button>
-          </div>
-          <div style={{ marginTop: 16 }}><button type="button" className="secondary" onClick={() => { setDemoMode(true); seedDemoData(); }}>Essayer la démo</button></div>
-          {notification && <div className={`notification ${notification.type === 'error' ? 'notification-error' : ''}`}>{notification.message}</div>}
-        </section>
       </div>
     );
   }
