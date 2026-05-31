@@ -27,17 +27,56 @@ const statusBadge = (value: string) => {
 const roleLabel = (role: ContactRole) => role.replace(/\b\w/g, (c) => c.toUpperCase());
 
 // ── Demo data ──
+// GREEN: On track, all green, no alerts
 const demoTransactions: Transaction[] = [
-  { id: 'demo-1', property: 'Appartement 3 pièces — 15 Bd des Anglais, Nice', buyer: 'Thomas Rivière', seller: 'Sophie Mercier', compromisDate: new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10), notaire: 'Me. Audrey Fontaine', price: 420000, loanStatus: 'pending', documentStatus: 'missing', notaireStatus: 'not ready', completed: false },
-  { id: 'demo-2', property: 'Maison 5 pièces — 8 Rue du Vieux Moulin, Lyon 5e', buyer: 'Camille Dubois', seller: 'Marc Lefevre', compromisDate: new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10), notaire: 'Me. Philippe Garnier', price: 585000, loanStatus: 'approved', documentStatus: 'complete', notaireStatus: 'ready', completed: false },
-  { id: 'demo-3', property: 'Studio rénové — 22 Rue de Turbigo, Paris 3e', buyer: 'Lucas Martin', seller: 'Isabelle Laurent', compromisDate: new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10), notaire: 'Me. Claire Dubois', price: 275000, loanStatus: 'refused', documentStatus: 'missing', notaireStatus: 'not ready', completed: false }
+  {
+    id: 'demo-1',
+    property: 'Maison centre-ville — Lyon',
+    buyer: 'Camille Dubois',
+    seller: 'Marc Lefevre',
+    compromisDate: new Date(Date.now() - 20 * 86400000).toISOString().slice(0, 10),
+    notaire: 'Me. Philippe Garnier',
+    price: 585000,
+    loanStatus: 'approved',
+    documentStatus: 'complete',
+    notaireStatus: 'ready',
+    completed: false
+  },
+  // YELLOW: Attention needed — upcoming documents deadline in 8 days
+  {
+    id: 'demo-2',
+    property: 'Appartement — Marseille',
+    buyer: 'Thomas Rivière',
+    seller: 'Sophie Mercier',
+    compromisDate: new Date(Date.now() - 38 * 86400000).toISOString().slice(0, 10),
+    notaire: 'Me. Audrey Fontaine',
+    price: 420000,
+    loanStatus: 'pending',
+    documentStatus: 'missing',
+    notaireStatus: 'not ready',
+    completed: false
+  },
+  // RED: Urgent / Late — documents notaire LATE by 5 days
+  {
+    id: 'demo-3',
+    property: 'Studio — Paris',
+    buyer: 'Lucas Martin',
+    seller: 'Isabelle Laurent',
+    compromisDate: new Date(Date.now() - 55 * 86400000).toISOString().slice(0, 10),
+    notaire: 'Me. Claire Dubois',
+    price: 275000,
+    loanStatus: 'refused',
+    documentStatus: 'missing',
+    notaireStatus: 'not ready',
+    completed: false
+  }
 ];
 const demoContacts: Contact[] = [
-  { id: 'demo-c1', name: 'Thomas Rivière', role: 'buyer', email: 'thomas.riviere@email.fr', phone: '06 12 34 56 78' },
+  { id: 'demo-c1', name: 'Camille Dubois', role: 'buyer', email: 'camille.dubois@email.fr', phone: '06 23 45 67 89' },
   { id: 'demo-c2', name: 'Sophie Mercier', role: 'seller', email: 'sophie.mercier@email.fr', phone: '06 98 76 54 32' },
-  { id: 'demo-c3', name: 'Me. Audrey Fontaine', role: 'notaire', email: 'afontaine@notaires.fr', phone: '04 93 85 12 00' },
-  { id: 'demo-c4', name: 'Camille Dubois', role: 'buyer', email: 'camille.dubois@email.fr', phone: '06 23 45 67 89' },
-  { id: 'demo-c5', name: 'Philippe Garnier', role: 'notaire', email: 'pgarnier@notaires.fr', phone: '04 78 42 18 00' }
+  { id: 'demo-c3', name: 'Me. Philippe Garnier', role: 'notaire', email: 'pgarnier@notaires.fr', phone: '04 78 42 18 00' },
+  { id: 'demo-c4', name: 'Thomas Rivière', role: 'buyer', email: 'thomas.riviere@email.fr', phone: '06 12 34 56 78' },
+  { id: 'demo-c5', name: 'Me. Audrey Fontaine', role: 'notaire', email: 'afontaine@notaires.fr', phone: '04 93 85 12 00' }
 ];
 
 const testimonialData = [
