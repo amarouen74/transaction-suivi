@@ -502,6 +502,56 @@ button.danger:hover {
   font-size: 0.9rem;
 }
 
+.inline-select {
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid #d2dae8;
+  background: #f8fafc;
+  font-size: 0.85rem;
+  cursor: pointer;
+  max-width: 120px;
+}
+
+.health-banner {
+  padding: 0 !important;
+  overflow: hidden;
+  background: #fbfdff;
+}
+
+.health-bar {
+  display: flex;
+  gap: 0;
+}
+
+.health-item {
+  padding: 14px 18px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  min-width: 80px;
+}
+
+.health-good {
+  background: #d7f0d8;
+  color: #11632a;
+}
+
+.health-warning {
+  background: #fff2d7;
+  color: #7b4e1d;
+}
+
+.health-critical {
+  background: #ffe8e8;
+  color: #9f2d2d;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 @media (max-width: 860px) {
   .split-row {
     grid-template-columns: 1fr;

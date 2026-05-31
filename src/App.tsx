@@ -704,6 +704,25 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
         </div>
       </section>
 
+      {/* ── Deal health banner ── */}
+      {filteredTransactions.length > 0 && (
+        <section className="card health-banner">
+          <div className="health-bar">
+            <div className="health-item health-good" style={{ flex: stats.active + stats.completed }}>
+              <strong>{stats.active + stats.completed}</strong> on track
+            </div>
+            <div className="health-item health-warning" style={{ flex: stats.closingSoon }}>
+              <strong>{stats.closingSoon}</strong> closing soon
+            </div>
+            {stats.atRisk > 0 && (
+              <div className="health-item health-critical" style={{ flex: stats.atRisk, animation: 'pulse 2s infinite' }}>
+                ⚠️ <strong>{stats.atRisk}</strong> at risk — needs attention!
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="card dashboard-card">
         <div className="dashboard-header">
           <div>
@@ -732,22 +751,15 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
           </div>
         </div>
 
-        <div className="dashboard-stats">
-          <div><strong>{stats.all}</strong> all</div>
-          <div><strong>{stats.active}</strong> active</div>
-          <div><strong>{stats.atRisk}</strong> at risk</div>
-          <div><strong>{stats.closingSoon}</strong> closing soon</div>
-          <div><strong>{stats.completed}</strong> completed</div>
-        </div>
-
         <div className="table-wrap">
           <table className="deal-table">
             <thead>
               <tr>
                 <th>Property</th>
-                <th>Buyer</th>
-                <th>Status</th>
-                <th>Risk</th>
+                <th>Health</th>
+                <th>Loan</th>
+                <th>Docs</th>
+                <th>Notaire</th>
                 <th>Sale date</th>
                 <th>Actions</th>
               </tr>
@@ -755,7 +767,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
             <tbody>
               {filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="empty-row">
+                  <td colSpan={7} className="empty-row">
                     <div className="empty-state">
                       <strong>{searchQuery || filter !== 'all' ? 'No matching deals' : 'No deals yet'}</strong>
                       <span>{searchQuery || filter !== 'all' ? 'Try a different search or filter.' : 'Use the quick-add above or the full form below.'}</span>
@@ -766,19 +778,63 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
                 filteredTransactions.map((item) => {
                   const status = getDealStatus(item);
                   const itemMilestones = buildMilestones(item);
+                  const riskStatus = determineRisk(item);
+                  const setField = (field: keyof Transaction, value: any) => {
+                    const updated = { ...item, [field]: value };
+                    setTransactions((current) => current.map((t) => t.id === item.id ? updated : t));
+                    if (selectedDealId === item.id) setTransaction(updated);
+                  };
                   return (
                     <tr key={item.id}>
-                      <td>{item.property}</td>
-                      <td>{item.buyer}</td>
-                      <td><span className={`status-pill ${statusLabelClass(status)}`}>{status}</span></td>
-                      <td>{determineRisk(item)}</td>
-                      <td>{itemMilestones.saleDate}</td>
+                      <td style={{ fontWeight: 600 }}>{item.property}</td>
+                      <td>
+                        <span className={`status-pill ${statusLabelClass(status)}`}>{status}</span>
+                        {riskStatus === 'at risk' && (
+                          <span className="status-pill badge-danger" style={{ display: 'block', marginTop: 4 }}>⚠️ at risk</span>
+                        )}
+                      </td>
+                      <td>
+                        <select
+                          className="inline-select"
+                          value={item.loanStatus}
+                          onChange={(e) => setField('loanStatus', e.target.value)}
+                        >
+                          <option value="pending">⏳ Pending</option>
+                          <option value="approved">✅ Approved</option>
+                          <option value="refused">❌ Refused</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          className="inline-select"
+                          value={item.documentStatus}
+                          onChange={(e) => setField('documentStatus', e.target.value)}
+                        >
+                          <option value="missing">❌ Missing</option>
+                          <option value="complete">✅ Complete</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          className="inline-select"
+                          value={item.notaireStatus}
+                          onChange={(e) => setField('notaireStatus', e.target.value)}
+                        >
+                          <option value="not ready">⏳ Not ready</option>
+                          <option value="ready">✅ Ready</option>
+                        </select>
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {itemMilestones.saleDate}
+                        <br />
+                        <small style={{ color: '#6b7685' }}>Compromis: {item.compromisDate}</small>
+                      </td>
                       <td>
                         <button type="button" className="tiny-button" onClick={() => selectTransaction(item.id)}>
                           Edit
                         </button>
                         <button type="button" className="tiny-button danger" onClick={() => requestDeleteDeal(item.id)}>
-                          Delete
+                          Del
                         </button>
                       </td>
                     </tr>
