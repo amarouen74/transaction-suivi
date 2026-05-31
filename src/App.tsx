@@ -182,7 +182,13 @@ function App() {
   }, []);
 
   const milestones = useMemo(() => buildMilestones(transaction), [transaction]);
-  const reminders = useMemo(() => buildReminders(transaction), [transaction]);
+  const reminders = useMemo(() => {
+    if (selectedDealId) {
+      return buildReminders(transaction);
+    }
+    // No deal selected — show combined reminders from all deals
+    return transactions.flatMap((t) => buildReminders(t));
+  }, [selectedDealId, transaction, transactions]);
   const risk = useMemo(() => determineRisk(transaction), [transaction]);
 
   const filteredTransactions = useMemo(() => {
