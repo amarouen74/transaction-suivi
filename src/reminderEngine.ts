@@ -73,7 +73,7 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   if (daysToWithdrawal < 0) {
     items.push(normalizeReminder(
       transaction,
-      `⚠️ Legal withdrawal deadline OVERDUE by ${Math.abs(daysToWithdrawal)} day(s)`,
+      `ℹ️ Legal withdrawal period ended ${Math.abs(daysToWithdrawal)} day(s) ago — deal is now secure`,
       milestones.withdrawalDeadline,
       'buyer',
       buyer?.name,

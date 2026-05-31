@@ -47,7 +47,7 @@ export const buildReminders = (transaction: Transaction) => {
   // Overdue warnings (highest priority)
   addIf(transaction.loanStatus === 'pending' && daysToLoan < 0, `⚠️ Loan deadline OVERDUE by ${Math.abs(daysToLoan)} day(s)`);
   addIf(transaction.documentStatus === 'missing' && daysToDocs < 0, `⚠️ Document deadline OVERDUE by ${Math.abs(daysToDocs)} day(s)`);
-  addIf(daysToWithdrawal < 0, `⚠️ Legal withdrawal deadline OVERDUE by ${Math.abs(daysToWithdrawal)} day(s)`);
+  addIf(daysToWithdrawal < 0, `ℹ️ Legal withdrawal period ended ${Math.abs(daysToWithdrawal)} day(s) ago — deal is now secure`);
   addIf(daysToSale < 0, `⚠️ Acte de vente date has passed (${milestones.saleDate})`);
 
   // Upcoming warnings
