@@ -107,7 +107,8 @@ const demoContacts: Contact[] = [
 
 function App() {
   const [user, setUser] = useState<any | null>(null);
-  const [demoMode, setDemoMode] = useState(false);
+  const params = new URLSearchParams(window.location.search);
+  const [demoMode, setDemoMode] = useState(params.has('demo'));
   const [authMode, setAuthMode] = useState<'signIn' | 'signUp'>('signIn');
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -174,6 +175,13 @@ function App() {
     const timer = window.setInterval(updateReminders, REMINDER_INTERVAL_MS);
     return () => window.clearInterval(timer);
   }, [transactions, contacts]);
+
+  // Auto-load demo data if ?demo URL parameter is present
+  useEffect(() => {
+    if (demoMode && transactions.length === 0) {
+      seedDemoData();
+    }
+  }, []);
 
   useEffect(() => {
     if ('Notification' in window) {
