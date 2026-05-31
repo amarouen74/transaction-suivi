@@ -65,19 +65,24 @@ export const buildReminders = (transaction: Transaction) => {
 
 export const determineRisk = (transaction: Transaction) => {
   const terms = buildMilestones(transaction);
-  const today = new Date();
-  const warnThreshold = (dateString: string) => {
+  const daysTo = (dateString: string) => {
     const target = new Date(dateString);
-    return (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24) <= 7;
+    return Math.ceil((target.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
+
+  const upcomingWarn = (dateString: string) => {
+    const days = daysTo(dateString);
+    return days >= 0 && days <= 7;
+  };
+
+  const overdue = (dateString: string) => daysTo(dateString) < 0;
 
   const atRisk =
     transaction.loanStatus === 'refused' ||
     transaction.documentStatus === 'missing' ||
     transaction.notaireStatus === 'not ready' ||
-    warnThreshold(terms.loanApprovalDeadline) ||
-    warnThreshold(terms.documentDeadline) ||
-    warnThreshold(terms.withdrawalDeadline);
+    (transaction.loanStatus === 'pending' && (upcomingWarn(terms.loanApprovalDeadline) || overdue(terms.loanApprovalDeadline))) ||
+    overdue(terms.documentDeadline);
 
   return atRisk ? 'at risk' : 'on track';
 };
