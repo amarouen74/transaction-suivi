@@ -125,6 +125,7 @@ function App() {
   const [quickData, setQuickData] = useState({ property: '', buyer: '', seller: '', price: 0 });
   const [showFaq, setShowFaq] = useState<number | null>(null);
   const [demoStoryStep, setDemoStoryStep] = useState(0);
+  const [activeTab, setActiveTab] = useState<'overview' | 'dossiers' | 'contacts' | 'alertes'>('overview');
 
   const loadData = async (userId: string) => {
     setLoading(true); setNotification(null);
@@ -657,43 +658,11 @@ function App() {
     );
   }
 
-  // ── MAIN APP (Dashboard) ──
-  return (
-    <div className="page-shell">
-      <header>
-        <h1>🏠 Suivi Vente Immo</h1>
-        <p>Suivi des dossiers de vente immobilière — du compromis à l'acte authentique.</p>
-        <div className="user-toolbar">
-          {user ? <span>Connecté en tant que {user?.email}</span> : demoMode ? <span className="badge-warning" style={{ padding: '4px 12px', borderRadius: 999, fontSize: '0.85rem', fontWeight: 700 }}>⚡ Mode démo</span> : null}
-          <button type="button" className="secondary" onClick={logout} disabled={loading}>Quitter la démo</button>
-        </div>
-        {loading && <div className="notification">Chargement...</div>}
-        {notification && <div className={`notification ${notification.type === 'error' ? 'notification-error' : ''}`}>{notification.message}</div>}
-      </header>
+  // ── MAIN APP (Dashboard with Sidebar) ──
+  const pageTitle = activeTab === 'overview' ? 'Vue d\'ensemble' : activeTab === 'dossiers' ? 'Mes Dossiers' : activeTab === 'contacts' ? 'Contacts' : 'Échéances & Alertes';
 
-      {!hasRealData && (
-        <section className="card demo-card">
-          <div className="demo-banner">
-            <div><h2>👋 Bienvenue sur Suivi Vente Immo</h2><p>Essayez l'application avec un scénario immobilier réaliste — aucune inscription nécessaire.</p></div>
-            <button className="demo-button" onClick={seedDemoData}>Charger la démo</button>
-          </div>
-          <p className="demo-note">⚠️ Les données de démo disparaîtront après rafraîchissement. Créez un compte pour sauvegarder vos vrais dossiers.</p>
-        </section>
-      )}
-
-      {deleteConfirm && (
-        <div className="modal-overlay" onClick={cancelDelete}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h3>Confirmer la suppression</h3>
-            <p>Êtes-vous sûr de vouloir supprimer ce {deleteConfirm.type === 'deal' ? 'dossier' : 'contact'} ? Cette action est irréversible.</p>
-            <div className="modal-actions">
-              <button type="button" className="secondary" onClick={cancelDelete}>Annuler</button>
-              <button type="button" className="danger" onClick={confirmDelete}>Supprimer</button>
-            </div>
-          </div>
-        </div>
-      )}
-
+  const renderOverview = () => (
+    <>
       {/* ── Story-driven demo walkthrough ── */}
       {demoMode && !user && (
         <section className="card story-card">
@@ -732,6 +701,65 @@ function App() {
         </section>
       )}
 
+      {/* ── Quick Stats ── */}
+      {filteredTransactions.length > 0 && (
+        <section className="card health-banner">
+          <div className="health-bar">
+            <div className="health-item health-good" style={{ flex: stats.active + stats.completed }}><strong>{stats.active + stats.completed}</strong> en ordre</div>
+            <div className="health-item health-warning" style={{ flex: stats.closingSoon }}><strong>{stats.closingSoon}</strong> signature proche</div>
+            {stats.atRisk > 0 && <div className="health-item health-critical" style={{ flex: stats.atRisk, animation: 'pulse 2s infinite' }}>⚠️ <strong>{stats.atRisk}</strong> urgent !</div>}
+          </div>
+        </section>
+      )}
+
+      <section className="card overview-card">
+        <div className="split-row">
+          <div>
+            <h2>📅 Échéances légales</h2>
+            {selectedDealId ? (
+              <ul className="timeline-list">
+                <li><strong>Fin rétractation (J+10)</strong><span>{milestones.withdrawalDeadline}</span></li>
+                <li><strong>Condition suspensive prêt (J+45)</strong><span>{milestones.loanApprovalDeadline}</span></li>
+                <li><strong>Documents notaire (J+30)</strong><span>{milestones.documentDeadline}</span></li>
+                <li><strong>Signature acte authentique (J+90)</strong><span>{milestones.saleDate}</span></li>
+              </ul>
+            ) : (
+              <p className="empty-state" style={{ textAlign: 'left', padding: 0 }}>Sélectionnez un dossier pour voir ses échéances.</p>
+            )}
+          </div>
+          <div>
+            <h2>🚦 Statut du dossier</h2>
+            {selectedDealId ? (
+              <div className="status-grid">
+                <div><strong>Prêt</strong>{statusBadge(transaction.loanStatus)}</div>
+                <div><strong>Documents</strong>{statusBadge(transaction.documentStatus)}</div>
+                <div><strong>Notaire</strong>{statusBadge(transaction.notaireStatus)}</div>
+                <div><strong>Global</strong>{statusBadge(risk)}</div>
+              </div>
+            ) : (
+              <p className="empty-state" style={{ textAlign: 'left', padding: 0 }}>Sélectionnez un dossier pour voir son statut.</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Top 3 critical alerts ── */}
+      <section className="card reminders-card">
+        <h2>⚠️ Alertes critiques</h2>
+        {reminders.length === 0 ? (
+          <p style={{ color: '#6b7685' }}>Aucune alerte pour le moment.</p>
+        ) : (
+          <ul>
+            {reminders.slice(0, 3).map((r, idx) => <li key={`rm-${idx}`} style={{ listStyle: 'none', display: 'flex', justifyContent: 'space-between', gap: 12, padding: '14px 0', borderBottom: '1px solid var(--gray-100)' }}>{r}</li>)}
+            {reminders.length > 3 && <li style={{ listStyle: 'none', padding: '14px 0', color: 'var(--gray-500)', fontStyle: 'italic' }}>+{reminders.length - 3} autres alertes — <span style={{ cursor: 'pointer', color: 'var(--emerald)', fontWeight: 600 }} onClick={() => setActiveTab('alertes')}>Voir tout</span></li>}
+          </ul>
+        )}
+      </section>
+    </>
+  );
+
+  const renderDossiers = () => (
+    <>
       <section className="card quick-add-card">
         <div className="quick-add-header"><h2>⚡ Nouveau dossier de vente</h2><span className="quick-add-hint">Bien, acheteur, vendeur — le nécessaire pour démarrer le suivi.</span></div>
         <div className="quick-add-fields">
@@ -742,16 +770,6 @@ function App() {
           <button type="button" onClick={saveQuickDeal} disabled={loading || !quickData.property.trim() || !quickData.buyer.trim() || !quickData.seller.trim()}>+ Ajouter</button>
         </div>
       </section>
-
-      {filteredTransactions.length > 0 && (
-        <section className="card health-banner">
-          <div className="health-bar">
-            <div className="health-item health-good" style={{ flex: stats.active + stats.completed }}><strong>{stats.active + stats.completed}</strong> en ordre</div>
-            <div className="health-item health-warning" style={{ flex: stats.closingSoon }}><strong>{stats.closingSoon}</strong> signature proche</div>
-            {stats.atRisk > 0 && <div className="health-item health-critical" style={{ flex: stats.atRisk, animation: 'pulse 2s infinite' }}>⚠️ <strong>{stats.atRisk}</strong> urgent !</div>}
-          </div>
-        </section>
-      )}
 
       <section className="card dashboard-card">
         <div className="dashboard-header">
@@ -833,30 +851,12 @@ function App() {
         )}
       </section>
 
-      <section className="card overview-card">
-        <div className="split-row">
-          <div><h2>📅 Échéances légales</h2><ul className="timeline-list"><li><strong>Fin rétractation (J+10)</strong><span>{milestones.withdrawalDeadline}</span></li><li><strong>Condition suspensive prêt (J+45)</strong><span>{milestones.loanApprovalDeadline}</span></li><li><strong>Documents notaire (J+30)</strong><span>{milestones.documentDeadline}</span></li><li><strong>Signature acte authentique (J+90)</strong><span>{milestones.saleDate}</span></li></ul></div>
-          <div><h2>🚦 Statut du dossier</h2><div className="status-grid"><div><strong>Prêt</strong>{statusBadge(transaction.loanStatus)}</div><div><strong>Documents</strong>{statusBadge(transaction.documentStatus)}</div><div><strong>Notaire</strong>{statusBadge(transaction.notaireStatus)}</div><div><strong>Global</strong>{statusBadge(risk)}</div></div></div>
-        </div>
-      </section>
+      <section className="card export-card"><h2>📄 Export dossier</h2><p>Copiez un résumé ou générez un PDF de la timeline pour votre client ou notaire.</p><div className="form-actions" style={{ justifyContent: 'flex-start' }}><button onClick={copySummary}>📋 Copier le résumé</button><button onClick={generatePDF} className="secondary">📄 Télécharger la timeline (PDF)</button></div></section>
+    </>
+  );
 
-      <section className="card reminders-card">
-        <h2>⚠️ Alertes et rappels</h2>
-        <ul>{reminders.length === 0 ? <li style={{ listStyle: 'none', color: '#6b7685' }}>Aucune alerte pour ce dossier.</li> : reminders.map((r, idx) => <li key={`rm-${idx}`}>{r}</li>)}</ul>
-      </section>
-
-      <section className="card scheduled-reminders-card">
-        <h2>🔔 Rappels programmés</h2>
-        {dueReminders.length === 0 ? <p>Aucun rappel pour le moment.</p> : (
-          <div className="reminder-list">{dueReminders.map((reminder) => (
-            <div key={`${reminder.transactionId}-${reminder.message}`} className="reminder-item">
-              <div className="reminder-text"><strong>{reminder.property}</strong><div>{reminder.message}</div><small>Échéance {reminder.dueDate} ({reminder.dueInDays} jour(s))</small><small>Contact: {reminder.contactName || reminder.contactRole} {reminder.contactEmail ? `(${reminder.contactEmail})` : ''}</small></div>
-              <div className="reminder-actions"><button type="button" onClick={() => sendReminderEmail(reminder)}>📧 Relancer</button><button type="button" className="secondary" onClick={() => sendBrowserNotification(reminder)}>🔔 Alerte</button></div>
-            </div>
-          ))}</div>
-        )}
-      </section>
-
+  const renderContacts = () => (
+    <>
       <section className="card form-card">
         <div className="split-row">
           <div><h2>{selectedContactId ? 'Modifier contact' : 'Nouveau contact'}</h2><p>Acheteurs, vendeurs, notaires — enregistrez vos contacts et liez-les aux dossiers.</p></div>
@@ -885,8 +885,138 @@ function App() {
           </table>
         </div>
       </section>
+    </>
+  );
 
-      <section className="card export-card"><h2>📄 Export dossier</h2><p>Copiez un résumé ou générez un PDF de la timeline pour votre client ou notaire.</p><div className="form-actions" style={{ justifyContent: 'flex-start' }}><button onClick={copySummary}>📋 Copier le résumé</button><button onClick={generatePDF} className="secondary">📄 Télécharger la timeline (PDF)</button></div></section>
+  const renderAlertes = () => (
+    <>
+      <section className="card overview-card">
+        <div className="split-row">
+          <div>
+            <h2>📅 Échéances légales</h2>
+            {selectedDealId ? (
+              <ul className="timeline-list">
+                <li><strong>Fin rétractation (J+10)</strong><span>{milestones.withdrawalDeadline}</span></li>
+                <li><strong>Condition suspensive prêt (J+45)</strong><span>{milestones.loanApprovalDeadline}</span></li>
+                <li><strong>Documents notaire (J+30)</strong><span>{milestones.documentDeadline}</span></li>
+                <li><strong>Signature acte authentique (J+90)</strong><span>{milestones.saleDate}</span></li>
+              </ul>
+            ) : (
+              <p className="empty-state" style={{ textAlign: 'left', padding: 0 }}>Sélectionnez un dossier dans "Mes Dossiers" pour voir ses échéances.</p>
+            )}
+          </div>
+          <div>
+            <h2>🚦 Statut du dossier</h2>
+            {selectedDealId ? (
+              <div className="status-grid">
+                <div><strong>Prêt</strong>{statusBadge(transaction.loanStatus)}</div>
+                <div><strong>Documents</strong>{statusBadge(transaction.documentStatus)}</div>
+                <div><strong>Notaire</strong>{statusBadge(transaction.notaireStatus)}</div>
+                <div><strong>Global</strong>{statusBadge(risk)}</div>
+              </div>
+            ) : (
+              <p className="empty-state" style={{ textAlign: 'left', padding: 0 }}>Sélectionnez un dossier pour voir son statut.</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="card scheduled-reminders-card">
+        <h2>🔔 Rappels programmés</h2>
+        {dueReminders.length === 0 ? <p>Aucun rappel pour le moment.</p> : (
+          <div className="reminder-list">{dueReminders.map((reminder) => (
+            <div key={`${reminder.transactionId}-${reminder.message}`} className="reminder-item">
+              <div className="reminder-text"><strong>{reminder.property}</strong><div>{reminder.message}</div><small>Échéance {reminder.dueDate} ({reminder.dueInDays} jour(s))</small><small>Contact: {reminder.contactName || reminder.contactRole} {reminder.contactEmail ? `(${reminder.contactEmail})` : ''}</small></div>
+              <div className="reminder-actions"><button type="button" onClick={() => sendReminderEmail(reminder)}>📧 Relancer</button><button type="button" className="secondary" onClick={() => sendBrowserNotification(reminder)}>🔔 Alerte</button></div>
+            </div>
+          ))}</div>
+        )}
+      </section>
+    </>
+  );
+
+  const sidebarLinks: { id: typeof activeTab; label: string; icon: string }[] = [
+    { id: 'overview', label: 'Vue d\'ensemble', icon: '📊' },
+    { id: 'dossiers', label: 'Mes Dossiers', icon: '📁' },
+    { id: 'contacts', label: 'Contacts', icon: '👥' },
+    { id: 'alertes', label: 'Échéances & Alertes', icon: '🔔' },
+  ];
+
+  return (
+    <div className="demo-layout">
+      {!hasRealData && (
+        <section className="card demo-card" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, borderRadius: 0, margin: 0 }}>
+          <div className="demo-banner">
+            <div><h2>👋 Bienvenue sur Suivi Vente Immo</h2><p>Essayez l'application avec un scénario immobilier réaliste — aucune inscription nécessaire.</p></div>
+            <button className="demo-button" onClick={seedDemoData}>Charger la démo</button>
+          </div>
+          <p className="demo-note" style={{ marginTop: 8, marginBottom: 0 }}>⚠️ Les données de démo disparaîtront après rafraîchissement. Créez un compte pour sauvegarder vos vrais dossiers.</p>
+        </section>
+      )}
+
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={cancelDelete}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h3>Confirmer la suppression</h3>
+            <p>Êtes-vous sûr de vouloir supprimer ce {deleteConfirm.type === 'deal' ? 'dossier' : 'contact'} ? Cette action est irréversible.</p>
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={cancelDelete}>Annuler</button>
+              <button type="button" className="danger" onClick={confirmDelete}>Supprimer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sidebar ── */}
+      <aside className="demo-sidebar">
+        <div className="demo-sidebar-logo">
+          <span className="demo-sidebar-logo-icon">🏠</span>
+          <span className="demo-sidebar-logo-text">Suivi Vente Immo</span>
+        </div>
+        <nav className="demo-sidebar-nav">
+          {sidebarLinks.map((link) => (
+            <button
+              key={link.id}
+              className={`demo-sidebar-link ${activeTab === link.id ? 'demo-sidebar-link-active' : ''}`}
+              onClick={() => setActiveTab(link.id)}
+            >
+              <span className="demo-sidebar-link-icon">{link.icon}</span>
+              <span>{link.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="demo-sidebar-footer">
+          <button className="demo-sidebar-reset" onClick={() => { seedDemoData(); setActiveTab('overview'); }}>
+            🔄 Réinitialiser la démo
+          </button>
+          <div className="demo-sidebar-demo-badge">⚡ Mode démo</div>
+        </div>
+      </aside>
+
+      {/* ── Main content ── */}
+      <main className="demo-main">
+        {/* ── Top header bar ── */}
+        <header className="demo-header">
+          <div className="demo-header-left">
+            <h1 className="demo-header-title">{pageTitle}</h1>
+          </div>
+          <div className="demo-header-right">
+            {notification && <div className={`notification ${notification.type === 'error' ? 'notification-error' : ''}`} style={{ margin: 0, padding: '8px 14px', fontSize: '0.85rem' }}>{notification.message}</div>}
+            <div className="demo-avatar" title="Utilisateur démo">
+              <span>👤</span>
+            </div>
+            <button type="button" className="secondary" onClick={logout} disabled={loading} style={{ padding: '8px 14px', fontSize: '0.85rem' }}>Quitter</button>
+          </div>
+        </header>
+
+        {/* ── Dynamic content ── */}
+        <div className="demo-content">
+          {activeTab === 'overview' && renderOverview()}
+          {activeTab === 'dossiers' && renderDossiers()}
+          {activeTab === 'contacts' && renderContacts()}
+          {activeTab === 'alertes' && renderAlertes()}
+        </div>
+      </main>
     </div>
   );
 }
