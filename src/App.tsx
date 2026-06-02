@@ -26,40 +26,37 @@ const statusBadge = (value: string) => {
 };
 const roleLabel = (role: ContactRole) => role.replace(/\b\w/g, (c) => c.toUpperCase());
 
-// ── Demo data ──
-// GREEN: On track, all green, no alerts
+// ── Demo data — scénario immobilier réaliste ──
 const demoTransactions: Transaction[] = [
   {
     id: 'demo-1',
-    property: 'Maison centre-ville — Lyon',
+    property: 'Appartement T3 — 12 rue de la République, Lyon 6e',
     buyer: 'Camille Dubois',
     seller: 'Marc Lefevre',
     compromisDate: new Date(Date.now() - 20 * 86400000).toISOString().slice(0, 10),
     notaire: 'Me. Philippe Garnier',
-    price: 585000,
+    price: 420000,
     loanStatus: 'approved',
     documentStatus: 'complete',
     notaireStatus: 'ready',
     completed: false
   },
-  // YELLOW: Attention needed — upcoming documents deadline in 8 days
   {
     id: 'demo-2',
-    property: 'Appartement — Marseille',
+    property: 'Maison 4 pièces — Allée des Tilleuls, Marseille 8e',
     buyer: 'Thomas Rivière',
     seller: 'Sophie Mercier',
     compromisDate: new Date(Date.now() - 38 * 86400000).toISOString().slice(0, 10),
     notaire: 'Me. Audrey Fontaine',
-    price: 420000,
+    price: 585000,
     loanStatus: 'pending',
     documentStatus: 'missing',
     notaireStatus: 'not ready',
     completed: false
   },
-  // RED: Urgent / Late — documents notaire LATE by 5 days
   {
     id: 'demo-3',
-    property: 'Studio — Paris',
+    property: 'Studio — 8 rue du Faubourg, Paris 11e',
     buyer: 'Lucas Martin',
     seller: 'Isabelle Laurent',
     compromisDate: new Date(Date.now() - 55 * 86400000).toISOString().slice(0, 10),
@@ -79,10 +76,22 @@ const demoContacts: Contact[] = [
   { id: 'demo-c5', name: 'Me. Audrey Fontaine', role: 'notaire', email: 'afontaine@notaires.fr', phone: '04 93 85 12 00' }
 ];
 
-const testimonialData = [
-  { name: 'Caroline M.', role: 'Agent immobilier — Paris 16e', text: 'Je perds le fil avec 15 dossiers en parallèle. Maintenant je vois en un coup d\'œil où j\'en suis et surtout ce qui va exploser.', avatar: 'CM' },
-  { name: 'Karim B.', role: 'Agent — Lyon 6e', text: 'L\'échéance de prêt de mon client est passée inaperçue l\'an dernier — j\'ai perdu 22 000 € de commission. Avec Transaction Suivi, plus jamais.', avatar: 'KB' },
-  { name: 'Sophie L.', role: 'Agent — Nice', text: 'Le rappel automatique J-7 avant l\'échéance des docs notaire m\'a sauvé une signature. Client et notaire étaient contents du professionnalisme.', avatar: 'SL' }
+// ── Story-driven demo steps ──
+type DemoStep = {
+  id: number;
+  title: string;
+  description: string;
+  status: 'done' | 'active' | 'upcoming';
+  icon: string;
+  detail: string;
+};
+
+const demoStorySteps: DemoStep[] = [
+  { id: 1, title: 'Compromis de vente signé', description: 'Le compromis est signé entre M. Lefevre (vendeur) et Mme Dubois (acheteuse) pour l\'appartement de Lyon 6e — 420 000 €.', status: 'done', icon: '✍️', detail: '14 mai 2026 — Toutes les conditions suspensives sont mentionnées.' },
+  { id: 2, title: 'Délai de rétractation purgé', description: 'Les 10 jours de rétractation SRU sont écoulés. L\'acheteuse ne s\'est pas rétractée.', status: 'done', icon: '✅', detail: '24 mai 2026 — Le dossier est sécurisé juridiquement.' },
+  { id: 3, title: 'Financement bancaire', description: 'L\'acheteuse a obtenu son accord de principe. La banque a émis l\'offre de prêt.', status: 'done', icon: '🏦', detail: '5 juin 2026 — Prêt accepté : 380 000 € sur 20 ans.' },
+  { id: 4, title: 'Documents notaire', description: 'Le notaire Me Garnier a reçu toutes les pièces : diagnostics, titre de propriété, PV d\'AG.', status: 'done', icon: '📄', detail: '10 juin 2026 — Dossier complet chez le notaire.' },
+  { id: 5, title: 'Signature de l\'acte authentique', description: 'La signature est programmée en l\'étude de Me Garnier.', status: 'active', icon: '🏠', detail: 'Prévue le 12 août 2026 — J-72 avant la signature.' },
 ];
 
 const faqData = [
@@ -114,8 +123,8 @@ function App() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'deal' | 'contact'; id: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [quickData, setQuickData] = useState({ property: '', buyer: '', seller: '', price: 0 });
-  const [showPricing, setShowPricing] = useState(false);
   const [showFaq, setShowFaq] = useState<number | null>(null);
+  const [demoStoryStep, setDemoStoryStep] = useState(0);
 
   const loadData = async (userId: string) => {
     setLoading(true); setNotification(null);
@@ -286,12 +295,12 @@ function App() {
     try {
       const doc = new jsPDF();
       const mils = buildMilestones(transaction);
-      doc.setFontSize(18); doc.text('Transaction Suivi — Timeline', 20, 30);
+      doc.setFontSize(18); doc.text('Suivi Vente Immo — Timeline', 20, 30);
       doc.setFontSize(12); doc.text(`Bien: ${transaction.property}`, 20, 45);
       doc.text(`Prix: ${transaction.price.toLocaleString()} €`, 20, 53);
       doc.text(`Acheteur: ${transaction.buyer}`, 20, 61);
       doc.text(`Vendeur: ${transaction.seller}`, 20, 69);
-      doc.setFontSize(14); doc.text('📅 Échéances légales', 20, 85);
+      doc.setFontSize(14); doc.text('Échéances légales', 20, 85);
       doc.setFontSize(11);
       const items = [
         ['Compromis signé', transaction.compromisDate, '✅'],
@@ -303,7 +312,7 @@ function App() {
       items.forEach(([label, date, icon], i) => {
         doc.text(`${icon} ${label}: ${date}`, 20, 97 + i * 10);
       });
-      doc.setFontSize(10); doc.text('Généré par Transaction Suivi — Conforme au droit immobilier français', 20, 170);
+      doc.setFontSize(10); doc.text('Généré par Suivi Vente Immo — Conforme au droit immobilier français', 20, 170);
       doc.save(`timeline-${transaction.property.slice(0, 15).replace(/\s/g, '_')}.pdf`);
       notify('📄 PDF de la timeline téléchargé !', 'success');
     } catch (e) {
@@ -316,136 +325,259 @@ function App() {
   const seedDemoData = () => {
     setTransactions(demoTransactions); setContacts(demoContacts);
     resetDealForm(); resetContactForm(); setFilter('all'); setSearchQuery(''); setNotification(null);
-    // Auto-select the Nice deal (demo-1)
     selectTransaction(demoTransactions[0].id);
     notify('Données de démo chargées ! ⚠️ Elles disparaîtront après rafraîchissement.', 'success');
   };
 
   const hasRealData = (user && (transactions.length > 0 || contacts.length > 0)) || demoMode;
 
-  // ── LANDING PAGE (always shown first, unless already logged in or demo) ──
+  // ── LANDING PAGE ──
   if (!user && !demoMode) {
     return (
       <div className="lp">
         <div className="lp-nav">
           <div className="lp-nav-inner">
-            <span className="lp-logo">🏡 Transaction Suivi</span>
-            <div className="lp-nav-right">
-              <div className="lp-nav-links">
-                <a href="#features" onClick={(e) => { e.preventDefault(); document.getElementById('features')?.scrollIntoView({behavior:'smooth'}); }}>Fonctionnalités</a>
-                <a href="#testimonials" onClick={(e) => { e.preventDefault(); document.getElementById('testimonials')?.scrollIntoView({behavior:'smooth'}); }}>Témoignages</a>
-                <a href="#pricing" onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({behavior:'smooth'}); }}>Tarifs</a>
-                <a href="#faq" onClick={(e) => { e.preventDefault(); document.getElementById('faq')?.scrollIntoView({behavior:'smooth'}); }}>FAQ</a>
-              </div>
-              <button className="lp-nav-login" onClick={() => { setDemoMode(true); seedDemoData(); }}>Connexion</button>
-            </div>
+            <span className="lp-logo">🏠 Suivi Vente Immo</span>
+            <button className="lp-nav-login" onClick={() => { setDemoMode(true); seedDemoData(); }}>Connexion</button>
           </div>
         </div>
 
-        {/* ── Hero ── */}
+        {/* ── HERO ── */}
         <section className="lp-hero">
           <div className="lp-hero-bg" />
           <div className="lp-container">
             <div className="lp-hero-content">
-              <div className="lp-hero-badge">Conforme au droit immobilier français</div>
-              <h1 className="lp-hero-title">Ne perdez plus jamais une commission à cause d'un délai manqué</h1>
+              <div className="lp-hero-badge">Outil métier pour agents immobiliers</div>
+              <h1 className="lp-hero-title">Ne perdez plus aucun dossier de vente entre le compromis et l'acte authentique</h1>
               <p className="lp-hero-sub">
-                Calcul automatique des délais légaux, rappels intelligents et tableau de bord clair. Du compromis à l'acte.
+                Suivi des ventes immobilières dédié aux agents : chaque étape du compromis à l'acte authentique est tracée, chaque délai est surveillé. Zéro dossier oublié.
               </p>
               <div className="lp-hero-actions">
                 <button className="lp-btn lp-btn-primary" onClick={() => { setDemoMode(true); seedDemoData(); }}>
-                  🚀 Essayer la démo gratuite
-                </button>
-                <button className="lp-btn lp-btn-secondary" onClick={() => { setDemoMode(true); seedDemoData(); }}>
-                  Créer mon compte gratuit
+                  🚀 Tester la démo
                 </button>
               </div>
               <div className="lp-hero-trust">
-                <span>🔒 Données sécurisées</span>
-                <span>⚖️ Conforme RGPD</span>
-                <span>🇫🇷 Droit français</span>
+                <span>🔒 Conforme RGPD</span>
+                <span>🏠 100% immobilier</span>
+                <span>🇫🇷 Droit français intégré</span>
               </div>
             </div>
             <div className="lp-mockup">
               <div className="lp-mockup-card">
                 <div className="lp-mockup-header">
-                  <h3>🏠 Appartement — 420 000 €</h3>
+                  <h3>🏠 Appartement T3 — Lyon 6e — 420 000 €</h3>
                   <span>En cours</span>
                 </div>
                 <div className="lp-mockup-timeline">
                   <div className="lp-mockup-step past"><div className="lp-mockup-dot" /> <div><strong>Compromis signé</strong><span>14 mai 2026</span></div> <span>✅</span></div>
                   <div className="lp-mockup-step past"><div className="lp-mockup-dot" /> <div><strong>Délai rétractation purgé</strong><span>24 mai 2026</span></div> <span>✅</span></div>
-                  <div className="lp-mockup-step active"><div className="lp-mockup-dot lp-mockup-pulse" /> <div><strong>Condition suspensive prêt</strong><span>Échéance dans 31 jours</span></div> <span>🟡</span></div>
-                  <div className="lp-mockup-step"><div className="lp-mockup-dot" /> <div><strong>Documents notaire</strong><span>Échéance dans 16 jours</span></div> <span>📄</span></div>
-                  <div className="lp-mockup-step"><div className="lp-mockup-dot" /> <div><strong>Signature acte de vente</strong><span>Prévue le 12 août 2026</span></div> <span>📅</span></div>
+                  <div className="lp-mockup-step past"><div className="lp-mockup-dot" /> <div><strong>Prêt accepté</strong><span>5 juin 2026</span></div> <span>✅</span></div>
+                  <div className="lp-mockup-step active"><div className="lp-mockup-dot lp-mockup-pulse" /> <div><strong>Documents notaire</strong><span>Dossier complet</span></div> <span>📄</span></div>
+                  <div className="lp-mockup-step"><div className="lp-mockup-dot" /> <div><strong>Signature acte authentique</strong><span>Prévue le 12 août 2026</span></div> <span>📅</span></div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ── La Douleur ── */}
+        {/* ── PROBLÈME ── */}
         <section className="lp-section lp-section-white">
           <div className="lp-container">
-            <h2 className="lp-section-title">3 délais critiques entre le compromis et l'acte</h2>
-            <p className="lp-section-sub">Un seul oubli peut vous coûter votre commission.</p>
-            <div className="lp-grid-3">
-              <div className="lp-pain-card"><span className="lp-pain-icon">⏰</span><h3>J-10 · Délai de rétractation</h3><p>L'acheteur peut renoncer sans pénalité. Passé ce délai, la vente devient ferme.</p></div>
-              <div className="lp-pain-card"><span className="lp-pain-icon">🏦</span><h3>J-45 · Condition suspensive prêt</h3><p>Si le prêt n'est pas obtenu à temps, la vente tombe — et votre commission aussi. <strong>20% des agents concernés.</strong></p></div>
-              <div className="lp-pain-card"><span className="lp-pain-icon">📄</span><h3>J-30 · Documents notaire</h3><p>Pièces manquantes = signature reportée = client mécontent. Chaque jour compte.</p></div>
+            <h2 className="lp-section-title">Vos dossiers de vente vous échappent-ils ?</h2>
+            <p className="lp-section-sub">Entre le compromis et l'acte authentique, des dizaines de détails à suivre. Un seul oubli peut tout faire capoter.</p>
+            <div className="lp-grid-4">
+              <div className="lp-pain-card"><span className="lp-pain-icon">📁</span><h3>Dossiers éparpillés</h3><p>Notes sur papier, emails oubliés, suivi Excel. Difficile de s'y retrouver avec plusieurs ventes en parallèle.</p></div>
+              <div className="lp-pain-card"><span className="lp-pain-icon">👁️‍🗨️</span><h3>Manque de visibilité</h3><p>Pas de vue globale sur l'avancement de vos ventes. Vous découvrez les problèmes trop tard.</p></div>
+              <div className="lp-pain-card"><span className="lp-pain-icon">📊</span><h3>Suivi Excel / notes dispersées</h3><p>Un tableur partagé, des post-it, des relances oubliées. Votre organisation ne suit plus.</p></div>
+              <div className="lp-pain-card"><span className="lp-pain-icon">⏰</span><h3>Retards non détectés</h3><p>Un financement qui traîne, un notaire qui ne répond pas — si vous ne le voyez pas à temps, la vente s'effondre.</p></div>
             </div>
           </div>
         </section>
 
-        {/* ── Comment ça marche ── */}
-        <section style={{ padding: '80px 0', background: 'var(--emerald-bg)' }}>
+        {/* ── AVANT vs APRÈS ── */}
+        <section className="lp-section lp-section-alt">
+          <div className="lp-container">
+            <h2 className="lp-section-title">Avant vs Après</h2>
+            <p className="lp-section-sub">Comment les agents immobiliers passent du chaos à la maîtrise.</p>
+            <div className="lp-comparison">
+              <div className="lp-comparison-card lp-comparison-before">
+                <div className="lp-comparison-label">❌ Avant — Sans outil</div>
+                <ul>
+                  <li>Fichier Excel avec 15 onglets</li>
+                  <li>Relances notaire oubliées</li>
+                  <li>Délais de prêt dépassés sans alerte</li>
+                  <li>Aucune visibilité sur les dossiers bloqués</li>
+                  <li>Dossiers perdus entre agent, notaire et acheteur</li>
+                </ul>
+              </div>
+              <div className="lp-comparison-card lp-comparison-after">
+                <div className="lp-comparison-label">✅ Après — Avec Suivi Vente Immo</div>
+                <ul>
+                  <li>Tous les dossiers centralisés en un endroit</li>
+                  <li>Chaque étape du compromis à l'acte est tracée</li>
+                  <li>Alertes automatiques sur les délais critiques</li>
+                  <li>Vue d'ensemble en temps réel</li>
+                  <li>Zéro dossier oublié, zéro retard non détecté</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── SOLUTION ── */}
+        <section className="lp-section lp-section-white">
+          <div className="lp-container">
+            <h2 className="lp-section-title">La solution pour les agents immobiliers</h2>
+            <p className="lp-section-sub">Centralisation, visibilité et suivi de chaque dossier de vente.</p>
+            <div className="lp-solution-list">
+              <div className="lp-solution-item">
+                <span className="lp-solution-icon">📋</span>
+                <div>
+                  <h3>Centralisation des dossiers de vente</h3>
+                  <p>Un seul endroit pour tous vos dossiers : bien, acheteur, vendeur, notaire, prix, étapes. Fini les fichiers éparpillés.</p>
+                </div>
+              </div>
+              <div className="lp-solution-item">
+                <span className="lp-solution-icon">🔍</span>
+                <div>
+                  <h3>Visibilité sur chaque étape du cycle immobilier</h3>
+                  <p>Compromis, rétractation, financement, documents notaire, acte authentique — chaque étape est visible et datée.</p>
+                </div>
+              </div>
+              <div className="lp-solution-item">
+                <span className="lp-solution-icon">🔔</span>
+                <div>
+                  <h3>Réduction des oublis entre compromis et acte</h3>
+                  <p>Alertes automatiques sur les dossiers en retard, les délais qui approchent et les actions à mener.</p>
+                </div>
+              </div>
+              <div className="lp-solution-item">
+                <span className="lp-solution-icon">📊</span>
+                <div>
+                  <h3>Vue d'ensemble de votre portefeuille</h3>
+                  <p>En un coup d'œil : combien de dossiers en cours, lesquels sont bloqués, lesquels arrivent à signature.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── COMMENT ÇA MARCHE ── */}
+        <section className="lp-section" style={{ background: 'var(--emerald-bg)' }}>
           <div className="lp-container">
             <h2 className="lp-section-title">Comment ça marche</h2>
-            <p className="lp-section-sub">3 secondes pour créer un dossier, 3 mois de tranquillité.</p>
-            <div className="lp-grid-4">
-              <div className="lp-step-card"><div className="lp-step-num">1</div><h3>Ajoutez un dossier</h3><p>Entrez l'adresse du bien, l'acheteur, le vendeur et le prix. C'est tout.</p></div>
-              <div className="lp-step-card"><div className="lp-step-num">2</div><h3>Les délais se calculent seuls</h3><p>Notre moteur basé sur le droit français génère automatiquement le planning complet.</p></div>
-              <div className="lp-step-card"><div className="lp-step-num">3</div><h3>Suivez en 1 coup d'œil</h3><p>Tableau de bord, code couleur, rappels automatiques. Vous voyez tout immédiatement.</p></div>
-              <div className="lp-step-card"><div className="lp-step-num">4</div><h3>Relancez en 1 clic</h3><p>Email pré-rempli vers l'acheteur, le vendeur ou le notaire. Modèles juridiquement conformes.</p></div>
+            <p className="lp-section-sub">3 étapes pour suivre toutes vos ventes immobilières.</p>
+            <div className="lp-grid-3">
+              <div className="lp-step-card"><div className="lp-step-num">1</div><h3>Créer un dossier de vente</h3><p>Renseignez le bien immobilier, l'acheteur, le vendeur et la date du compromis. Le suivi démarre immédiatement.</p></div>
+              <div className="lp-step-card"><div className="lp-step-num">2</div><h3>Suivre les étapes</h3><p>Compromis → financement → notaire → acte authentique. Chaque étape est tracée avec ses échéances légales.</p></div>
+              <div className="lp-step-card"><div className="lp-step-num">3</div><h3>Visualiser l'état global</h3><p>Vue d'ensemble de toutes vos ventes en temps réel avec alertes sur les dossiers bloqués ou en retard.</p></div>
             </div>
           </div>
         </section>
 
-        {/* ── Features ── */}
-        <section id="features" style={{ padding: '80px 0', background: '#fff' }}>
+        {/* ── FONCTIONNALITÉS ── */}
+        <section id="features" className="lp-section lp-section-white">
           <div className="lp-container">
-            <h2 className="lp-section-title">Fonctionnalités clés</h2>
-            <p className="lp-section-sub">Tout ce dont vous avez besoin pour gérer vos transactions sereinement.</p>
+            <h2 className="lp-section-title">Fonctionnalités conçues pour l'immobilier</h2>
+            <p className="lp-section-sub">Pas de gadget. Uniquement ce dont un agent immobilier a besoin.</p>
             <div className="lp-features-grid">
-              <div className="lp-feature-card"><span className="lp-feature-icon">📊</span><h3>Tableau de bord santé</h3><p>Visualisez instantanément l'état de tous vos dossiers : vert (OK), orange (attention), rouge (urgence).</p></div>
-              <div className="lp-feature-card"><span className="lp-feature-icon">⏱️</span><h3>Calcul automatique des délais</h3><p>Rétractation 10j, prêt 45j, notaire 30j, signature 90j — tout est calculé depuis la date du compromis.</p></div>
-              <div className="lp-feature-card"><span className="lp-feature-icon">🔔</span><h3>Rappels intelligents</h3><p>Notifications automatiques quand un délai approche. Plus besoin de compter les jours sur un calendrier.</p></div>
-              <div className="lp-feature-card"><span className="lp-feature-icon">👥</span><h3>Carnet de contacts</h3><p>Acheteurs, vendeurs, notaires — enregistrez leurs coordonnées et reliez-les aux dossiers.</p></div>
-              <div className="lp-feature-card"><span className="lp-feature-icon">📧</span><h3>Relance en 1 clic</h3><p>Email pré-rempli avec template professionnel pour relancer acheteur, notaire ou banque.</p></div>
-              <div className="lp-feature-card"><span className="lp-feature-icon">📋</span><h3>Résumé exportable</h3><p>Copiez un récapitulatif complet à partager avec votre client ou le notaire en un clic.</p></div>
+              <div className="lp-feature-card">
+                <span className="lp-feature-icon">🔄</span>
+                <h3>Suivi du cycle de vente immobilier</h3>
+                <p>Chaque dossier suit son propre cycle : compromis, rétractation, financement, notaire, signature de l'acte.</p>
+              </div>
+              <div className="lp-feature-card">
+                <span className="lp-feature-icon">📅</span>
+                <h3>Timeline des étapes d'un dossier</h3>
+                <p>Visualisez la chronologie complète de chaque vente avec les dates clés et les échéances légales.</p>
+              </div>
+              <div className="lp-feature-card">
+                <span className="lp-feature-icon">🚦</span>
+                <h3>Statut des transactions</h3>
+                <p>En cours, bloqué, à risque, signé — l'état de chaque dossier en un coup d'œil.</p>
+              </div>
+              <div className="lp-feature-card">
+                <span className="lp-feature-icon">⚠️</span>
+                <h3>Alertes sur dossiers en retard</h3>
+                <p>Notifications sur les dossiers inactifs, les délais dépassés et les actions urgentes à mener.</p>
+              </div>
+              <div className="lp-feature-card">
+                <span className="lp-feature-icon">📄</span>
+                <h3>Export / résumé pour notaire ou client</h3>
+                <p>Générez un résumé complet du dossier à partager avec le notaire ou votre client en un clic.</p>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ── Testimonials ── */}
-        <section id="testimonials" style={{ padding: '80px 0', background: '#f8fafc' }}>
+        {/* ── DÉMO SCÉNARIO ── */}
+        <section className="lp-section lp-section-alt">
           <div className="lp-container">
-            <h2 className="lp-section-title">Ils utilisent Transaction Suivi</h2>
-            <div className="lp-testimonials">
-              {testimonialData.map((t, i) => (
-                <div key={i} className="lp-testimonial-card">
-                  <div className="lp-test-avatar">{t.avatar}</div>
-                  <p className="lp-test-text">"{t.text}"</p>
-                  <div className="lp-test-author">{t.name}</div>
-                  <div className="lp-test-role">{t.role}</div>
+            <h2 className="lp-section-title">Voyez comment ça fonctionne</h2>
+            <p className="lp-section-sub">Scénario réel : suivez la vente d'un appartement de Lyon, du compromis à l'acte authentique.</p>
+            <div className="lp-demo-story">
+              <div className="lp-demo-story-header">
+                <div className="lp-demo-story-property">
+                  <span className="lp-demo-story-icon">🏠</span>
+                  <div>
+                    <strong>Appartement T3 — 12 rue de la République, Lyon 6e</strong>
+                    <span>Vendeur : M. Lefevre → Acheteuse : Mme Dubois — 420 000 €</span>
+                  </div>
                 </div>
-              ))}
+              </div>
+              <div className="lp-demo-steps">
+                {demoStorySteps.map((step, i) => (
+                  <div key={step.id} className={`lp-demo-step lp-demo-step-${step.status}`} onClick={() => setDemoStoryStep(i)}>
+                    <div className="lp-demo-step-marker">
+                      <div className="lp-demo-step-dot">{step.icon}</div>
+                      {i < demoStorySteps.length - 1 && <div className="lp-demo-step-line" />}
+                    </div>
+                    <div className="lp-demo-step-content">
+                      <div className="lp-demo-step-title">{step.title}</div>
+                      <div className="lp-demo-step-desc">{step.description}</div>
+                      <div className="lp-demo-step-detail">{step.detail}</div>
+                      {step.status === 'active' && <div className="lp-demo-step-badge">⏳ Étape en cours</div>}
+                      {step.status === 'done' && <div className="lp-demo-step-badge lp-demo-step-badge-done">✅ Terminé</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="lp-demo-story-cta">
+                <button className="lp-btn lp-btn-primary" onClick={() => { setDemoMode(true); seedDemoData(); }}>
+                  🚀 Tester avec vos propres dossiers
+                </button>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ── Pricing ── */}
-        <section id="pricing" style={{ padding: '80px 0', background: '#fff' }}>
+        {/* ── SOCIAL PROOF (mock data) ── */}
+        <section id="testimonials" className="lp-section lp-section-white">
+          <div className="lp-container">
+            <h2 className="lp-section-title">Résultats constatés</h2>
+            <div className="lp-stats-row">
+              <div className="lp-stat-card">
+                <div className="lp-stat-number">+X</div>
+                <div className="lp-stat-label">agences utilisent déjà le suivi</div>
+                <div className="lp-stat-mock">donnée mock — en cours de collecte</div>
+              </div>
+              <div className="lp-stat-card">
+                <div className="lp-stat-number">−X%</div>
+                <div className="lp-stat-label">de dossiers oubliés entre compromis et acte</div>
+                <div className="lp-stat-mock">donnée mock — estimation interne</div>
+              </div>
+              <div className="lp-stat-card">
+                <div className="lp-stat-number">X min</div>
+                <div className="lp-stat-label">pour créer un dossier de vente complet</div>
+                <div className="lp-stat-mock">donnée mock — estimation interne</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── PRICING ── */}
+        <section id="pricing" className="lp-section lp-section-alt">
           <div className="lp-container">
             <h2 className="lp-section-title">Tarifs simples et transparents</h2>
             <p className="lp-section-sub">Commencez gratuitement. Pas de carte bancaire requise.</p>
@@ -454,8 +586,8 @@ function App() {
                 <h3>Gratuit</h3>
                 <div className="lp-price">0 €<span>/mois</span></div>
                 <ul>
-                  <li>✅ 1 dossier suivi</li>
-                  <li>✅ Calcul automatique des délais</li>
+                  <li>✅ 1 dossier de vente suivi</li>
+                  <li>✅ Calcul automatique des délais légaux</li>
                   <li>✅ Rappels par notification</li>
                   <li>✅ Export de résumé</li>
                 </ul>
@@ -479,7 +611,7 @@ function App() {
         </section>
 
         {/* ── FAQ ── */}
-        <section id="faq" style={{ padding: '80px 0', background: '#f8fafc' }}>
+        <section id="faq" className="lp-section lp-section-white">
           <div className="lp-container">
             <h2 className="lp-section-title">Questions fréquentes</h2>
             <div className="lp-faq">
@@ -495,15 +627,20 @@ function App() {
           </div>
         </section>
 
-        {/* ── Final CTA ── */}
-        <section style={{ padding: '80px 0', background: 'var(--navy)', color: '#fff', textAlign: 'center' }}>
+        {/* ── FINAL CTA ── */}
+        <section className="lp-final-cta">
           <div className="lp-container">
-            <h2 style={{ fontSize: '2.2rem', margin: '0 0 16px' }}>Prêt à sécuriser vos commissions ?</h2>
-            <p style={{ color: 'rgba(255,255,255,0.7)', margin: '0 auto 32px', fontSize: '1.1rem' }}>Rejoignez les agents qui ne laissent plus rien au hasard.</p>
+            <h2 className="lp-final-title">Meilleure visibilité sur vos ventes. Moins de dossiers perdus.</h2>
+            <p className="lp-final-sub">Suivi simple de chaque dossier, du compromis de vente à l'acte authentique. Rejoignez les agents qui ne laissent plus rien au hasard.</p>
             <div className="lp-hero-actions" style={{ justifyContent: 'center' }}>
-              <button className="lp-btn lp-btn-primary" style={{ background: 'var(--emerald)', borderColor: 'var(--emerald)', fontSize: '1.15rem', padding: '16px 40px' }} onClick={() => { setDemoMode(true); seedDemoData(); }}>
+              <button className="lp-btn lp-btn-primary lp-btn-large" onClick={() => { setDemoMode(true); seedDemoData(); }}>
                 🚀 Essayer la démo gratuite
               </button>
+            </div>
+            <div className="lp-final-benefits">
+              <span>✅ Meilleure visibilité sur les ventes</span>
+              <span>✅ Moins de dossiers perdus</span>
+              <span>✅ Suivi simple du compromis à l'acte</span>
             </div>
             <div className="lp-hero-trust" style={{ justifyContent: 'center', marginTop: 24 }}>
               <span style={{ color: 'rgba(255,255,255,0.6)' }}>🔒 Données sécurisées et chiffrées</span>
@@ -512,20 +649,20 @@ function App() {
           </div>
         </section>
 
-        {/* ── Footer ── */}
-        <div style={{ padding: '32px 0', background: '#0a1a2e', color: 'rgba(255,255,255,0.5)', textAlign: 'center', fontSize: '0.85rem' }}>
-          <div className="lp-container">Transaction Suivi © 2026 — Construit pour les agents immobiliers par des agents immobiliers. 🇫🇷</div>
+        {/* ── FOOTER ── */}
+        <div className="lp-footer">
+          <div className="lp-container">Suivi Vente Immo © 2026 — L'outil de suivi des dossiers de vente pour les agents immobiliers. 🇫🇷</div>
         </div>
       </div>
     );
   }
 
-  // ── MAIN APP ──
+  // ── MAIN APP (Dashboard) ──
   return (
     <div className="page-shell">
       <header>
-        <h1>🏡 Transaction Suivi</h1>
-        <p>Gérez vos transactions immobilières avec vos contacts et vos rappels.</p>
+        <h1>🏠 Suivi Vente Immo</h1>
+        <p>Suivi des dossiers de vente immobilière — du compromis à l'acte authentique.</p>
         <div className="user-toolbar">
           {user ? <span>Connecté en tant que {user?.email}</span> : demoMode ? <span className="badge-warning" style={{ padding: '4px 12px', borderRadius: 999, fontSize: '0.85rem', fontWeight: 700 }}>⚡ Mode démo</span> : null}
           <button type="button" className="secondary" onClick={logout} disabled={loading}>Quitter la démo</button>
@@ -537,7 +674,7 @@ function App() {
       {!hasRealData && (
         <section className="card demo-card">
           <div className="demo-banner">
-            <div><h2>👋 Bienvenue sur Transaction Suivi</h2><p>Essayez l'application avec des données exemple — aucune inscription nécessaire.</p></div>
+            <div><h2>👋 Bienvenue sur Suivi Vente Immo</h2><p>Essayez l'application avec un scénario immobilier réaliste — aucune inscription nécessaire.</p></div>
             <button className="demo-button" onClick={seedDemoData}>Charger la démo</button>
           </div>
           <p className="demo-note">⚠️ Les données de démo disparaîtront après rafraîchissement. Créez un compte pour sauvegarder vos vrais dossiers.</p>
@@ -557,8 +694,46 @@ function App() {
         </div>
       )}
 
+      {/* ── Story-driven demo walkthrough ── */}
+      {demoMode && !user && (
+        <section className="card story-card">
+          <div className="story-header">
+            <h2>📖 Scénario : Vente d'un appartement à Lyon</h2>
+            <p>Suivez le cycle complet d'une vente immobilière, du compromis à l'acte authentique.</p>
+          </div>
+          <div className="story-property-bar">
+            <span className="story-property-icon">🏠</span>
+            <div>
+              <strong>Appartement T3 — 12 rue de la République, Lyon 6e</strong>
+              <span>Vendeur : M. Lefevre → Acheteuse : Mme Dubois — 420 000 € — Notaire : Me Garnier</span>
+            </div>
+          </div>
+          <div className="story-timeline">
+            {demoStorySteps.map((step, i) => (
+              <div
+                key={step.id}
+                className={`story-step story-step-${step.status} ${demoStoryStep === i ? 'story-step-selected' : ''}`}
+                onClick={() => setDemoStoryStep(i)}
+              >
+                <div className="story-step-marker">
+                  <div className="story-step-dot">{step.icon}</div>
+                  {i < demoStorySteps.length - 1 && <div className="story-step-line" />}
+                </div>
+                <div className="story-step-body">
+                  <div className="story-step-title">{step.title}</div>
+                  <div className="story-step-detail">{step.detail}</div>
+                  {step.status === 'active' && <span className="story-step-tag story-tag-active">⏳ En cours</span>}
+                  {step.status === 'done' && <span className="story-step-tag story-tag-done">✅ Terminé</span>}
+                  {step.status === 'upcoming' && <span className="story-step-tag story-tag-upcoming">À venir</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="card quick-add-card">
-        <div className="quick-add-header"><h2>⚡ Ajout rapide</h2><span className="quick-add-hint">Bien, acheteur, vendeur — le nécessaire. Modifiez les détails après.</span></div>
+        <div className="quick-add-header"><h2>⚡ Nouveau dossier de vente</h2><span className="quick-add-hint">Bien, acheteur, vendeur — le nécessaire pour démarrer le suivi.</span></div>
         <div className="quick-add-fields">
           <input value={quickData.property} onChange={(e) => setQuickData({ ...quickData, property: e.target.value })} placeholder="Adresse du bien" />
           <input value={quickData.buyer} onChange={(e) => setQuickData({ ...quickData, buyer: e.target.value })} placeholder="Nom de l'acheteur" />
@@ -580,13 +755,13 @@ function App() {
 
       <section className="card dashboard-card">
         <div className="dashboard-header">
-          <div><h2>Tableau de bord</h2></div>
+          <div><h2>Dossiers de vente</h2></div>
           <div className="dashboard-controls">
-            <input className="search-input" type="text" placeholder="🔍 Rechercher..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <input className="search-input" type="text" placeholder="🔍 Rechercher un bien, acheteur..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             <div className="filter-buttons">
               {(['all', 'active', 'at risk', 'closing soon', 'completed'] as DealStatus[]).map((status) => (
                 <button key={status} className={filter === status ? 'filter-button active' : 'filter-button'} type="button" onClick={() => setFilter(status)}>
-                  {status === 'all' ? 'Tous' : status === 'active' ? 'Actif' : status === 'at risk' ? 'Urgent' : status === 'closing soon' ? 'Signature' : 'Terminé'}
+                  {status === 'all' ? 'Tous' : status === 'active' ? 'En cours' : status === 'at risk' ? 'Bloqué' : status === 'closing soon' ? 'Signature proche' : 'Signé'}
                 </button>
               ))}
             </div>
@@ -594,10 +769,10 @@ function App() {
         </div>
         <div className="table-wrap">
           <table className="deal-table">
-            <thead><tr><th>Bien</th><th>Santé</th><th>Prêt</th><th>Docs</th><th>Notaire</th><th>Signature</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Bien immobilier</th><th>Statut</th><th>Prêt</th><th>Docs notaire</th><th>Notaire</th><th>Signature acte</th><th>Actions</th></tr></thead>
             <tbody>
               {filteredTransactions.length === 0 ? (
-                <tr><td colSpan={7} className="empty-row"><div className="empty-state"><strong>{searchQuery || filter !== 'all' ? 'Aucun résultat' : 'Pas encore de dossiers'}</strong><span>{searchQuery || filter !== 'all' ? 'Essayez une autre recherche.' : 'Ajoutez votre premier dossier ci-dessus.'}</span></div></td></tr>
+                <tr><td colSpan={7} className="empty-row"><div className="empty-state"><strong>{searchQuery || filter !== 'all' ? 'Aucun résultat' : 'Pas encore de dossiers'}</strong><span>{searchQuery || filter !== 'all' ? 'Essayez une autre recherche.' : 'Ajoutez votre premier dossier de vente ci-dessus.'}</span></div></td></tr>
               ) : (
                 filteredTransactions.map((item) => {
                   const status = getDealStatus(item);
@@ -612,11 +787,11 @@ function App() {
                     <tr key={item.id}>
                       <td style={{ fontWeight: 600 }}>{item.property}</td>
                       <td>
-                        <span className={`status-pill ${statusLabelClass(status)}`}>{status === 'active' ? 'OK' : status === 'at risk' ? 'Urgent' : status === 'closing soon' ? 'Bientôt' : 'Fait'}</span>
-                        {riskStatus === 'at risk' && <span className="status-pill badge-danger" style={{ display: 'block', marginTop: 4 }}>⚠️ Urgent</span>}
+                        <span className={`status-pill ${statusLabelClass(status)}`}>{status === 'active' ? 'En cours' : status === 'at risk' ? 'Bloqué' : status === 'closing soon' ? 'Signature proche' : 'Signé'}</span>
+                        {riskStatus === 'at risk' && <span className="status-pill badge-danger" style={{ display: 'block', marginTop: 4 }}>⚠️ Action requise</span>}
                       </td>
-                      <td><select className="inline-select" value={item.loanStatus} onChange={(e) => setField('loanStatus', e.target.value)}><option value="pending">⏳ En cours</option><option value="approved">✅ OK</option><option value="refused">❌ Refusé</option></select></td>
-                      <td><select className="inline-select" value={item.documentStatus} onChange={(e) => setField('documentStatus', e.target.value)}><option value="missing">❌ Manquant</option><option value="complete">✅ OK</option></select></td>
+                      <td><select className="inline-select" value={item.loanStatus} onChange={(e) => setField('loanStatus', e.target.value)}><option value="pending">⏳ En cours</option><option value="approved">✅ Accepté</option><option value="refused">❌ Refusé</option></select></td>
+                      <td><select className="inline-select" value={item.documentStatus} onChange={(e) => setField('documentStatus', e.target.value)}><option value="missing">❌ Manquant</option><option value="complete">✅ Complet</option></select></td>
                       <td><select className="inline-select" value={item.notaireStatus} onChange={(e) => setField('notaireStatus', e.target.value)}><option value="not ready">⏳ Pas prêt</option><option value="ready">✅ Prêt</option></select></td>
                       <td style={{ whiteSpace: 'nowrap' }}>{itemMilestones.saleDate}<br /><small style={{ color: '#6b7685' }}>Compromis: {item.compromisDate}</small></td>
                       <td><button type="button" className="tiny-button" onClick={() => selectTransaction(item.id)}>Éditer</button><button type="button" className="tiny-button danger" onClick={() => requestDeleteDeal(item.id)}>Suppr</button></td>
@@ -631,7 +806,7 @@ function App() {
 
       <section className="card form-card">
         <div className="split-row">
-          <div><h2>{selectedDealId ? 'Modifier le dossier' : 'Nouveau dossier'}</h2><p>Statuts, dates et contacts liés.</p></div>
+          <div><h2>{selectedDealId ? 'Modifier le dossier' : 'Nouveau dossier de vente'}</h2><p>Bien immobilier, parties, notaire et statuts.</p></div>
           <div className="form-actions">
             <button type="button" onClick={resetDealForm} className="secondary">Nouveau dossier</button>
             {selectedDealId && <button type="button" className="secondary" onClick={cancelDealEdit}>Annuler</button>}
@@ -641,7 +816,7 @@ function App() {
         {!selectedDealId && <p className="empty-state" style={{ marginTop: 12, textAlign: 'left', padding: 0 }}>Sélectionnez un dossier ou remplissez les champs ci-dessous.</p>}
         {(!selectedDealId || transaction.property || transaction.buyer || transaction.seller) && (
           <div className="field-grid">
-            <label>Bien<input value={transaction.property} onChange={(e) => handleChange('property', e.target.value)} placeholder="Adresse" /></label>
+            <label>Bien immobilier<input value={transaction.property} onChange={(e) => handleChange('property', e.target.value)} placeholder="Adresse du bien" /></label>
             <label>Contact acheteur<select value={transaction.buyerId || ''} onChange={(e) => selectContactForTransaction('buyerId', e.target.value)}><option value="">Choisir</option>{contactOptions('buyer').map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
             <label>Nom acheteur<input value={transaction.buyer} onChange={(e) => handleChange('buyer', e.target.value)} placeholder="Acheteur" /></label>
             <label>Contact vendeur<select value={transaction.sellerId || ''} onChange={(e) => selectContactForTransaction('sellerId', e.target.value)}><option value="">Choisir</option>{contactOptions('seller').map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
@@ -651,27 +826,27 @@ function App() {
             <label>Nom notaire<input value={transaction.notaire} onChange={(e) => handleChange('notaire', e.target.value)} placeholder="Notaire" /></label>
             <label>Prix (€)<input type="number" min="0" value={transaction.price} onChange={(e) => handleChange('price', Number(e.target.value))} /></label>
             <label>Prêt<select value={transaction.loanStatus} onChange={(e) => handleChange('loanStatus', e.target.value as LoanStatus)}><option value="pending">En cours</option><option value="approved">Accepté</option><option value="refused">Refusé</option></select></label>
-            <label>Documents<select value={transaction.documentStatus} onChange={(e) => handleChange('documentStatus', e.target.value as DocumentStatus)}><option value="missing">Manquants</option><option value="complete">Complets</option></select></label>
+            <label>Documents notaire<select value={transaction.documentStatus} onChange={(e) => handleChange('documentStatus', e.target.value as DocumentStatus)}><option value="missing">Manquants</option><option value="complete">Complets</option></select></label>
             <label>Notaire<select value={transaction.notaireStatus} onChange={(e) => handleChange('notaireStatus', e.target.value as NotaireStatus)}><option value="not ready">Pas prêt</option><option value="ready">Prêt</option></select></label>
-            <label className="checkbox-label"><input type="checkbox" checked={transaction.completed} onChange={(e) => handleChange('completed', e.target.checked)} /> Vente finalisée</label>
+            <label className="checkbox-label"><input type="checkbox" checked={transaction.completed} onChange={(e) => handleChange('completed', e.target.checked)} /> Acte authentique signé</label>
           </div>
         )}
       </section>
 
       <section className="card overview-card">
         <div className="split-row">
-          <div><h2>Calendrier</h2><ul className="timeline-list"><li><strong>Fin rétractation</strong><span>{milestones.withdrawalDeadline}</span></li><li><strong>Condition suspensive prêt</strong><span>{milestones.loanApprovalDeadline}</span></li><li><strong>Documents notaire</strong><span>{milestones.documentDeadline}</span></li><li><strong>Signature acte</strong><span>{milestones.saleDate}</span></li></ul></div>
-          <div><h2>Statut</h2><div className="status-grid"><div><strong>Prêt</strong>{statusBadge(transaction.loanStatus)}</div><div><strong>Documents</strong>{statusBadge(transaction.documentStatus)}</div><div><strong>Notaire</strong>{statusBadge(transaction.notaireStatus)}</div><div><strong>Global</strong>{statusBadge(risk)}</div></div></div>
+          <div><h2>📅 Échéances légales</h2><ul className="timeline-list"><li><strong>Fin rétractation (J+10)</strong><span>{milestones.withdrawalDeadline}</span></li><li><strong>Condition suspensive prêt (J+45)</strong><span>{milestones.loanApprovalDeadline}</span></li><li><strong>Documents notaire (J+30)</strong><span>{milestones.documentDeadline}</span></li><li><strong>Signature acte authentique (J+90)</strong><span>{milestones.saleDate}</span></li></ul></div>
+          <div><h2>🚦 Statut du dossier</h2><div className="status-grid"><div><strong>Prêt</strong>{statusBadge(transaction.loanStatus)}</div><div><strong>Documents</strong>{statusBadge(transaction.documentStatus)}</div><div><strong>Notaire</strong>{statusBadge(transaction.notaireStatus)}</div><div><strong>Global</strong>{statusBadge(risk)}</div></div></div>
         </div>
       </section>
 
       <section className="card reminders-card">
-        <h2>Rappels automatiques</h2>
-        <ul>{reminders.length === 0 ? <li style={{ listStyle: 'none', color: '#6b7685' }}>Aucun rappel pour ce dossier.</li> : reminders.map((r, idx) => <li key={`rm-${idx}`}>{r}</li>)}</ul>
+        <h2>⚠️ Alertes et rappels</h2>
+        <ul>{reminders.length === 0 ? <li style={{ listStyle: 'none', color: '#6b7685' }}>Aucune alerte pour ce dossier.</li> : reminders.map((r, idx) => <li key={`rm-${idx}`}>{r}</li>)}</ul>
       </section>
 
       <section className="card scheduled-reminders-card">
-        <h2>Rappels programmés</h2>
+        <h2>🔔 Rappels programmés</h2>
         {dueReminders.length === 0 ? <p>Aucun rappel pour le moment.</p> : (
           <div className="reminder-list">{dueReminders.map((reminder) => (
             <div key={`${reminder.transactionId}-${reminder.message}`} className="reminder-item">
@@ -684,7 +859,7 @@ function App() {
 
       <section className="card form-card">
         <div className="split-row">
-          <div><h2>{selectedContactId ? 'Modifier contact' : 'Nouveau contact'}</h2><p>Enregistrez vos contacts et liez-les aux dossiers.</p></div>
+          <div><h2>{selectedContactId ? 'Modifier contact' : 'Nouveau contact'}</h2><p>Acheteurs, vendeurs, notaires — enregistrez vos contacts et liez-les aux dossiers.</p></div>
           <div className="form-actions">
             <button type="button" onClick={resetContactForm} className="secondary">Nouveau contact</button>
             {selectedContactId && <button type="button" className="secondary" onClick={cancelContactEdit}>Annuler</button>}
@@ -711,7 +886,7 @@ function App() {
         </div>
       </section>
 
-      <section className="card export-card"><h2>Export</h2><p>Copiez un résumé ou générez un PDF de la timeline pour votre client ou notaire.</p><div className="form-actions" style={{ justifyContent: 'flex-start' }}><button onClick={copySummary}>📋 Copier le résumé</button><button onClick={generatePDF} className="secondary">📄 Télécharger la timeline (PDF)</button></div></section>
+      <section className="card export-card"><h2>📄 Export dossier</h2><p>Copiez un résumé ou générez un PDF de la timeline pour votre client ou notaire.</p><div className="form-actions" style={{ justifyContent: 'flex-start' }}><button onClick={copySummary}>📋 Copier le résumé</button><button onClick={generatePDF} className="secondary">📄 Télécharger la timeline (PDF)</button></div></section>
     </div>
   );
 }
