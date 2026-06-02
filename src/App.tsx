@@ -661,8 +661,14 @@ function App() {
   // ── MAIN APP (Dashboard with Sidebar) ──
   const pageTitle = activeTab === 'overview' ? 'Vue d\'ensemble' : activeTab === 'dossiers' ? 'Mes Dossiers' : activeTab === 'contacts' ? 'Contacts' : 'Échéances & Alertes';
 
-  const renderOverview = () => (
-    <>
+  const renderOverview = () => {
+    // Auto-select first deal if none selected
+    const activeDeal = selectedDealId ? transaction : (transactions.length > 0 ? transactions[0] : null);
+    const activeMilestones = activeDeal ? buildMilestones(activeDeal) : milestones;
+    const activeRisk = activeDeal ? determineRisk(activeDeal) : risk;
+
+    return (
+      <>
       {/* ── Story-driven demo walkthrough ── */}
       {demoMode && !user && (
         <section className="card story-card">
@@ -716,28 +722,41 @@ function App() {
         <div className="split-row">
           <div>
             <h2>📅 Échéances légales</h2>
-            {selectedDealId ? (
-              <ul className="timeline-list">
-                <li><strong>Fin rétractation (J+10)</strong><span>{milestones.withdrawalDeadline}</span></li>
-                <li><strong>Condition suspensive prêt (J+45)</strong><span>{milestones.loanApprovalDeadline}</span></li>
-                <li><strong>Documents notaire (J+30)</strong><span>{milestones.documentDeadline}</span></li>
-                <li><strong>Signature acte authentique (J+90)</strong><span>{milestones.saleDate}</span></li>
-              </ul>
+            {activeDeal ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <strong style={{ fontSize: '1rem', color: 'var(--gray-900)' }}>{activeDeal.property}</strong>
+                  <span className={`status-pill ${statusLabelClass(getDealStatus(activeDeal))}`} style={{ fontSize: '0.75rem' }}>
+                    {getDealStatus(activeDeal) === 'active' ? 'En cours' : getDealStatus(activeDeal) === 'at risk' ? 'Bloqué' : getDealStatus(activeDeal) === 'closing soon' ? 'Signature proche' : 'Signé'}
+                  </span>
+                </div>
+                <ul className="timeline-list">
+                  <li><strong>Fin rétractation (J+10)</strong><span>{activeMilestones.withdrawalDeadline}</span></li>
+                  <li><strong>Condition suspensive prêt (J+45)</strong><span>{activeMilestones.loanApprovalDeadline}</span></li>
+                  <li><strong>Documents notaire (J+30)</strong><span>{activeMilestones.documentDeadline}</span></li>
+                  <li><strong>Signature acte authentique (J+90)</strong><span>{activeMilestones.saleDate}</span></li>
+                </ul>
+                {transactions.length > 1 && (
+                  <p style={{ marginTop: 10, fontSize: '0.85rem', color: 'var(--gray-500)' }}>
+                    📁 <span style={{ cursor: 'pointer', color: 'var(--emerald)', fontWeight: 600 }} onClick={() => setActiveTab('dossiers')}>Voir tous les dossiers</span>
+                  </p>
+                )}
+              </>
             ) : (
-              <p className="empty-state" style={{ textAlign: 'left', padding: 0 }}>Sélectionnez un dossier pour voir ses échéances.</p>
+              <p className="empty-state" style={{ textAlign: 'left', padding: 0 }}>Aucun dossier. <span style={{ cursor: 'pointer', color: 'var(--emerald)', fontWeight: 600 }} onClick={() => setActiveTab('dossiers')}>Ajoutez-en un.</span></p>
             )}
           </div>
           <div>
             <h2>🚦 Statut du dossier</h2>
-            {selectedDealId ? (
+            {activeDeal ? (
               <div className="status-grid">
-                <div><strong>Prêt</strong>{statusBadge(transaction.loanStatus)}</div>
-                <div><strong>Documents</strong>{statusBadge(transaction.documentStatus)}</div>
-                <div><strong>Notaire</strong>{statusBadge(transaction.notaireStatus)}</div>
-                <div><strong>Global</strong>{statusBadge(risk)}</div>
+                <div><strong>Prêt</strong>{statusBadge(activeDeal.loanStatus)}</div>
+                <div><strong>Documents</strong>{statusBadge(activeDeal.documentStatus)}</div>
+                <div><strong>Notaire</strong>{statusBadge(activeDeal.notaireStatus)}</div>
+                <div><strong>Global</strong>{statusBadge(activeRisk)}</div>
               </div>
             ) : (
-              <p className="empty-state" style={{ textAlign: 'left', padding: 0 }}>Sélectionnez un dossier pour voir son statut.</p>
+              <p className="empty-state" style={{ textAlign: 'left', padding: 0 }}>Aucun dossier sélectionné.</p>
             )}
           </div>
         </div>
@@ -756,7 +775,8 @@ function App() {
         )}
       </section>
     </>
-  );
+    );
+  };
 
   const renderDossiers = () => (
     <>
