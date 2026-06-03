@@ -4,3 +4,7 @@ dist/
 .DS_Store
 .vercel
 .env*
+*.tmp
+*.ts.tmp
+src/*.tmp
+src/*.tsx.tmp

@@ -1,75 +1,145 @@
 # Transaction Suivi App
 
-A starter real estate deal tracking app for agents, from signed compromis to final acte de vente.
+Application de suivi des ventes immobilières pour agents français, du compromis à l'acte authentique.
 
-## What it does
+🌐 **Démo en ligne** : [transaction-suivi-oezn.vercel.app](https://transaction-suivi-oezn.vercel.app/?demo)
 
-- Create a transaction with property, buyer, seller, compromis date, notaire, and price
-- Automatically builds key milestones:
-  - legal withdrawal deadline
-  - loan approval deadline
-  - notaire document deadline
-  - estimated acte de vente date
-- Tracks transaction progress with status fields
-- Generates automatic reminders for urgent deadlines and missing items
-- Copies a shareable summary report to clipboard
+---
 
-## Run locally
+## ✨ Fonctionnalités
 
-1. Install dependencies:
+### Pour les agents immobiliers
+- **Suivi complet du cycle de vente** : compromis → rétractation → financement → documents notaire → signature acte authentique
+- **Calcul automatique des délais légaux français** :
+  - J+10 : délai de rétractation SRU
+  - J+30 : transmission des pièces au notaire
+  - J+45 : condition suspensive de prêt
+  - J+90 : date estimée de signature
+- **Alertes critiques** en temps réel sur les dossiers en retard
+- **Vue Gantt chart** de chaque dossier avec position "Aujourd'hui"
+- **Vue Kanban** drag-and-drop pour visualiser tous les dossiers par étape
+- **Upload de documents** (compromis, diagnostics, etc.) via Supabase Storage
+- **Templates d'emails juridiques** pré-écrits (relance acheteur, notaire, vendeur)
+- **Export PDF** de la timeline d'un dossier
+- **Dashboard analytique** : santé globale du portefeuille, alertes, échéances
 
-```bash
-npm install
+### Démo & onboarding
+- **Mode démo** sans inscription : 3 dossiers réalistes pré-chargés (Lyon, Marseille, Paris)
+- **Story-driven walkthrough** : scénario interactif de l'appartement de Lyon, du compromis à l'acte
+- **Migration automatique** : un seul clic pour passer du mode démo à un compte Supabase (avec sauvegarde des dossiers)
+
+### Compte & tarification
+- **Authentification Supabase** (email + password)
+- **Mode multi-utilisateurs** avec isolation des données (RLS Supabase)
+- **Plan Gratuit** : 1 dossier suivi
+- **Plan Pro** (19 €/mois HT) : dossiers illimités, upload, templates, PDF, support prioritaire
+
+---
+
+## 🏗 Architecture technique
+
+- **Frontend** : React 18 + TypeScript + Vite
+- **Backend / DB** : Supabase (PostgreSQL + Auth + Storage)
+- **PDF** : jsPDF
+- **Routing interne** : state-based (single page, no React Router)
+- **State** : hooks natifs (useState, useMemo, useEffect)
+
+### Structure des fichiers
+```
+src/
+├── App.tsx                  # Composant racine (UI + state)
+├── main.tsx                 # Entry point
+├── api.ts                   # Wrapper Supabase (auth, CRUD)
+├── supabaseClient.ts        # Init Supabase
+├── types.ts                 # Types TypeScript
+├── utils.ts                 # Helpers (buildMilestones, getDealStatus, etc.)
+├── reminderEngine.ts        # Génération des alertes
+├── validation.ts            # Validation (Zod-ready)
+├── data/
+│   └── demoData.ts          # 3 transactions + 9 contacts + FAQ
+├── components/
+│   ├── GanttChart.tsx       # Timeline visuelle d'un dossier
+│   ├── KanbanBoard.tsx      # Vue Kanban drag-and-drop
+│   ├── FileUpload.tsx       # Upload Supabase Storage
+│   ├── EmailTemplateSelector.tsx  # Templates d'emails juridiques
+│   └── UpgradeModal.tsx     # Modal d'upgrade Pro (Stripe stub)
+├── lib/
+│   ├── storage.ts           # Helpers Supabase Storage
+│   └── emailTemplates.ts    # Templates pré-écrits (droit français)
+└── styles.css               # CSS global
 ```
 
-2. Copy `.env.example` to `.env` and set your Supabase URL and anon key.
+---
 
-3. Create the database tables in Supabase using `supabase/schema.sql`. The schema includes row-level security policies to enforce user-only access for deals and contacts.
-
-4. Start the frontend app:
+## 🚀 Run locally
 
 ```bash
+# 1. Installer les dépendances
+npm install
+
+# 2. Configurer les variables d'environnement
+cp .env.example .env
+# → Renseigner VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY
+
+# 3. Créer les tables Supabase
+# → Copier le contenu de supabase/schema.sql dans l'éditeur SQL Supabase
+# → Activer Row Level Security
+
+# 4. (Optionnel) Créer le bucket Storage "deal-documents"
+
+# 5. Lancer le dev server
 npm run dev
 ```
 
-5. Open the URL shown by Vite in your browser.
+L'app est accessible sur `http://localhost:5173`. Ajouter `?demo` pour démarrer directement en mode démo.
 
-## Deploy to Vercel
+---
 
-1. Push your repository to GitHub.
-2. Create a new project in Vercel and import this repo.
-3. Set the following environment variables in Vercel:
+## 📦 Déploiement (Vercel)
 
 ```bash
-VITE_SUPABASE_URL
-VITE_SUPABASE_ANON_KEY
+# Variables d'environnement à définir :
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...   # Optionnel, pour le paiement Pro
 ```
 
-4. Use the default build command:
+Build command : `npm run build` — Output : `dist/`
 
-```bash
-npm run build
-```
+---
 
-5. Vercel will deploy the static site from the `dist` output.
+## 💳 Activer Stripe (plan Pro)
 
-## How to use
+1. Créer un compte [Stripe](https://stripe.com)
+2. Dans `.env`, ajouter `VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...`
+3. Créer un endpoint backend `/api/create-checkout-session` qui crée une Stripe Checkout Session
+4. L'UpgradeModal appellera automatiquement Stripe au clic sur "Procéder au paiement"
 
-- Fill the transaction form
-- Adjust loan, document, and notaire status
-- Review the timeline and risk status
-- Copy a summary report to share with clients or notaire
+Pour l'instant, l'UpgradeModal affiche un message d'instruction si Stripe n'est pas configuré.
 
-## Next improvements
+---
 
-- Add persistent storage with local storage or backend API
-- Add email or SMS reminders
-- Generate PDF exports for reports
-- Add multiple transaction management and filtering
-- Add contact management for buyer/seller/notaire profiles
+## 📋 Roadmap
 
-## Current app improvements
+- [x] **Phase 1 (juin 2026)** : Refactoring architectural, Gantt chart, Kanban, upload docs, templates emails, stub Stripe
+- [ ] **Phase 2** : Multi-tenant agences, invitations, rôles, logs d'activité
+- [ ] **Phase 3** : Signature électronique intégrée (Yousign / DocuSign)
+- [ ] **Phase 4** : OCR automatique des compromis PDF
+- [ ] **Phase 5** : Intégrations portails (SeLoger, LeBonCoin, Bien'ici)
+- [ ] **Phase 6** : App mobile (React Native)
 
-- Saved deals persist in Supabase with user isolation
-- Multi-deal dashboard with a list view
-- Status filters for all/active/at risk/closing soon/completed
+---
+
+## 🔒 Conformité & sécurité
+
+- ✅ **RGPD** : données stockées en Europe (Supabase EU)
+- ✅ **Droit français** : délais légaux SRU intégrés
+- ✅ **Row Level Security** : isolation des données par utilisateur
+- ✅ **Pas de faux chiffres** sur la landing page (conformité publicité)
+- ⚠️ Les données de démo disparaissent au rafraîchissement (par design)
+
+---
+
+## 📄 Licence
+
+Propriétaire © 2026 — Tous droits réservés.

@@ -1,27 +1,18 @@
-import type { DealStatus, Milestones, Transaction } from './types';
-
-const formatDate = (value: Date) => value.toISOString().slice(0, 10);
+import type { DealStatus, Milestones, Transaction, TransactionRisk } from './types';
 
 export const buildMilestones = (transaction: Transaction): Milestones => {
-  const base = new Date(transaction.compromisDate);
-  const withdrawal = new Date(base);
-  withdrawal.setDate(base.getDate() + 10);
-
-  const loanApproval = new Date(base);
-  loanApproval.setDate(base.getDate() + 45);
-
-  const documentDeadline = new Date(base);
-  documentDeadline.setDate(base.getDate() + 30);
-
-  const saleDate = new Date(base);
-  saleDate.setDate(base.getDate() + 90);
-
   return {
-    withdrawalDeadline: formatDate(withdrawal),
-    loanApprovalDeadline: formatDate(loanApproval),
-    documentDeadline: formatDate(documentDeadline),
-    saleDate: formatDate(saleDate)
+    withdrawalDeadline: addDays(transaction.compromisDate, 10),
+    loanApprovalDeadline: addDays(transaction.compromisDate, 45),
+    documentDeadline: addDays(transaction.compromisDate, 30),
+    saleDate: transaction.signingScheduledDate || addDays(transaction.compromisDate, 90)
   };
+};
+
+const addDays = (date: string, days: number): string => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
 };
 
 const daysBetween = (date: string) => {
@@ -32,69 +23,91 @@ const daysBetween = (date: string) => {
 };
 
 export const buildReminders = (transaction: Transaction) => {
-  const milestones = buildMilestones(transaction);
   const reminders: string[] = [];
 
   const addIf = (condition: boolean, message: string) => {
     if (condition) reminders.push(message);
   };
 
-  const daysToLoan = daysBetween(milestones.loanApprovalDeadline);
-  const daysToSale = daysBetween(milestones.saleDate);
+  const milestones = buildMilestones(transaction);
   const daysToWithdrawal = daysBetween(milestones.withdrawalDeadline);
+  const daysToLoan = daysBetween(milestones.loanApprovalDeadline);
   const daysToDocs = daysBetween(milestones.documentDeadline);
+  const daysToSigning = daysBetween(milestones.saleDate);
 
-  // 🔴 Critical overdue warnings
-  addIf(transaction.loanStatus === 'pending' && daysToLoan < 0, `🔴 Condition suspensive de prêt EXPIRÉE depuis ${Math.abs(daysToLoan)} jour(s) — Votre commission est menacée !`);
-  addIf(transaction.documentStatus === 'missing' && daysToDocs < 0, `🔴 Documents notaire EN RETARD de ${Math.abs(daysToDocs)} jour(s)`);
-  addIf(daysToWithdrawal < 0, `✅ Délai de rétractation purgé depuis ${Math.abs(daysToWithdrawal)} jour(s) — Le deal est sécurisé`);
-  addIf(daysToSale < 0, `🔴 Date de signature chez le notaire DÉPASSÉE (${milestones.saleDate})`);
+  // 🔴 Critical - Deal at risk
+  addIf(transaction.loanStatus === 'refused', '🔴 PRÊT REFUSÉ — Le deal est en danger. Trouver un financement alternatif immédiatement.');
+  addIf(transaction.loanStatus === 'pending' && daysToLoan < 0, `🔴 CONDITION SUSPENSIVE EXPIRÉE depuis ${Math.abs(daysToLoan)} jour(s) — Acte annulé si non régularisé.`);
+  addIf(transaction.loanStatus === 'pending' && daysToLoan <= 2 && daysToLoan >= 0, `🔴 J-${daysToLoan} avant caducité de la condition suspensive — Agissez MAINTENANT.`);
+  addIf(transaction.documentStatus === 'missing' && daysToDocs < 0, `🔴 DOCUMENTS EN RETARD de ${Math.abs(daysToDocs)} jour(s) — Notaire bloqué.`);
+  addIf(transaction.notaireStatus === 'not started', '🔴 Notaire : dossier non commencé. Relancer d\'urgence.');
 
-  // 🟡 Approaching deadlines
-  addIf(transaction.loanStatus === 'pending' && daysToLoan <= 7 && daysToLoan >= 0, `🟡 Condition suspensive de prêt échéance dans ${daysToLoan} jour(s)`);
-  addIf(transaction.loanStatus === 'pending' && daysToLoan <= 2 && daysToLoan >= 0, `🔴 J-${daysToLoan} avant caducité du prêt — Agissez immédiatement !`);
-  addIf(transaction.loanStatus === 'refused', '🔴 Prêt refusé — Trouver une alternative ou le deal est perdu');
-  addIf(transaction.loanStatus === 'approved' && daysToLoan > 0, '✅ Accord de principe obtenu — Continuer le suivi');
-  addIf(transaction.documentStatus === 'missing', '🟡 Documents bancaires ou notaire manquants');
-  addIf(daysToDocs <= 7 && daysToDocs >= 0, `🟡 Échéance documents notaire dans ${daysToDocs} jour(s)`);
-  addIf(daysToSale <= 14 && daysToSale >= 0, `🟡 Signature acte de vente prévue dans ${daysToSale} jour(s)`);
-  addIf(daysToWithdrawal <= 3 && daysToWithdrawal >= 0, `🟡 Fin du délai de rétractation dans ${daysToWithdrawal} jour(s)`);
+  // 🟡 Warning - Approaching deadlines
+  addIf(transaction.withdrawalStatus === 'in progress' && daysToWithdrawal <= 3 && daysToWithdrawal >= 0, `🟡 Délai rétractation expires dans ${daysToWithdrawal} jour(s).`);
+  addIf(transaction.loanStatus === 'pending' && daysToLoan <= 7 && daysToLoan > 2, `🟡 Prêt J-${daysToLoan}. Suivi bancaire urgent.`);
+  addIf(transaction.documentStatus === 'incomplete' && daysToDocs <= 7 && daysToDocs >= 0, `🟡 Documents J-${daysToDocs}. Envoyer au notaire.`);
+  addIf(daysToSigning <= 14 && daysToSigning >= 0, `🟡 Signature prévue J-${daysToSigning}. Préparer les documents.`);
 
-  return reminders.length ? reminders : ['✅ Aucune urgence — Transaction stable.'];
+  // ✅ On track
+  addIf(transaction.loanStatus === 'approved', '✅ Prêt approuvé. Condition sécurisée.');
+  addIf(transaction.withdrawalStatus === 'complete', `✅ Délai rétractation purgé. Deal sécurisé légalement.`);
+  addIf(transaction.documentStatus === 'complete' && transaction.notaireStatus === 'ready', '✅ Documents complets. Notaire prêt.');
+  addIf(transaction.signingStatus === 'completed', '✅ Acte signé. Transaction finalisée.');
+
+  // Default message if no alerts
+  if (reminders.length === 0) {
+    reminders.push('✅ Aucune urgence — Suivi en cours normalement.');
+  }
+
+  return reminders;
 };
 
-export const determineRisk = (transaction: Transaction) => {
-  const terms = buildMilestones(transaction);
+export const determineRisk = (transaction: Transaction): TransactionRisk => {
+  if (transaction.completed) return 'on track';
+
   const daysTo = (dateString: string) => {
     const target = new Date(dateString);
     return Math.ceil((target.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
-  const upcomingWarn = (dateString: string) => {
-    const days = daysTo(dateString);
-    return days >= 0 && days <= 7;
-  };
+  const milestones = buildMilestones(transaction);
+  const daysToLoan = daysTo(milestones.loanApprovalDeadline);
+  const daysToDocs = daysTo(milestones.documentDeadline);
+  const daysToWithdrawal = daysTo(milestones.withdrawalDeadline);
 
-  const overdue = (dateString: string) => daysTo(dateString) < 0;
+  // 🔴 Critical — Deal-threatening situations
+  const isCritical =
+    transaction.loanStatus === 'refused' || // Prêt refusé = deal en danger
+    (transaction.loanStatus === 'pending' && daysToLoan < 0) || // Condition suspensive expirée
+    (transaction.documentStatus !== 'complete' && daysToDocs < 0) || // Docs en retard
+    (transaction.documentStatus === 'missing' && daysToDocs <= 7) || // Docs manquants et proche deadline
+    (transaction.notaireStatus === 'not started' && daysToDocs <= 14); // Notaire n'a pas commencé
 
-  const atRisk =
-    transaction.loanStatus === 'refused' ||
-    transaction.documentStatus === 'missing' ||
-    transaction.notaireStatus === 'not ready' ||
-    (transaction.loanStatus === 'pending' && (upcomingWarn(terms.loanApprovalDeadline) || overdue(terms.loanApprovalDeadline))) ||
-    overdue(terms.documentDeadline);
+  if (isCritical) return 'critical';
 
-  return atRisk ? 'at risk' : 'on track';
+  // 🟡 At risk — Approaching deadlines or stuck workflow
+  const isAtRisk =
+    (transaction.loanStatus === 'pending' && daysToLoan <= 14) || // Prêt pas encore accepté
+    (transaction.documentStatus !== 'complete' && daysToDocs <= 14) || // Docs pas complets
+    (transaction.notaireStatus === 'pending' && daysToDocs <= 7) || // Notaire en cours mais deadline proche
+    (transaction.withdrawalStatus === 'in progress' && daysToWithdrawal <= 3) || // Rétractation imminente
+    (transaction.notaireStatus === 'not started'); // Notaire pas commencé (surveillance)
+
+  if (isAtRisk) return 'at risk';
+
+  return 'on track';
 };
 
 export const getDealStatus = (transaction: Transaction): DealStatus => {
   if (transaction.completed) return 'completed';
-  if (determineRisk(transaction) === 'at risk') return 'at risk';
+  const risk = determineRisk(transaction);
+  if (risk === 'critical') return 'at risk';
+  if (risk === 'at risk') return 'at risk';
 
-  const saleDate = new Date(buildMilestones(transaction).saleDate);
-  const daysToSale = Math.ceil((saleDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  const signingDate = transaction.signingScheduledDate || addDays(transaction.compromisDate, 90);
+  const daysToSigning = Math.ceil((new Date(signingDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
-  if (daysToSale <= 14) return 'closing soon';
+  if (daysToSigning <= 14) return 'closing soon';
   return 'active';
 };
 
@@ -102,13 +115,13 @@ export const statusLabelClass = (status: DealStatus) => {
   if (status === 'at risk') return 'badge-danger';
   if (status === 'closing soon') return 'badge-warning';
   if (status === 'completed') return 'badge-good';
-  return 'badge-good';
+  return 'badge-info';
 };
 
 export const buildSummary = (transaction: Transaction) => {
   const milestones = buildMilestones(transaction);
-  const status = determineRisk(transaction);
+  const risk = determineRisk(transaction);
   const reminders = buildReminders(transaction);
 
-  return `Transaction Summary\n\nProperty: ${transaction.property}\nBuyer: ${transaction.buyer}\nSeller: ${transaction.seller}\nCompromis Date: ${transaction.compromisDate}\nNotaire: ${transaction.notaire || 'Not specified'}\nPrice: €${transaction.price.toLocaleString()}\nCompleted: ${transaction.completed ? 'Yes' : 'No'}\n\nMilestones:\n- Withdrawal deadline: ${milestones.withdrawalDeadline}\n- Loan approval deadline: ${milestones.loanApprovalDeadline}\n- Documents deadline: ${milestones.documentDeadline}\n- Estimated acte de vente: ${milestones.saleDate}\n\nStatus:\n- Loan: ${transaction.loanStatus}\n- Documents: ${transaction.documentStatus}\n- Notaire: ${transaction.notaireStatus}\n- Overall: ${status}\n\nUpcoming reminders:\n${reminders.map((item) => `- ${item}`).join('\n')}`;
+  return `Transaction Summary\n\nProperty: ${transaction.property}\nBuyer: ${transaction.buyer}\nSeller: ${transaction.seller}\nCompromis Date: ${transaction.compromisDate}\nNotaire: ${transaction.notaire || 'Not specified'}\nPrice: €${transaction.price.toLocaleString()}\nCompleted: ${transaction.completed ? 'Yes' : 'No'}\n\nMilestones:\n- Withdrawal deadline: ${milestones.withdrawalDeadline}\n- Loan approval deadline: ${milestones.loanApprovalDeadline}\n- Documents deadline: ${milestones.documentDeadline}\n- Signing date: ${milestones.saleDate}\n\nStatus:\n- Loan: ${transaction.loanStatus}\n- Documents: ${transaction.documentStatus}\n- Notaire: ${transaction.notaireStatus}\n- Withdrawal: ${transaction.withdrawalStatus}\n- Overall Risk: ${risk}\n\nUpcoming reminders:\n${reminders.map((item) => `- ${item}`).join('\n')}`;
 };

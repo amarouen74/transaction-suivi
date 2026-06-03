@@ -2,81 +2,73 @@ import { useEffect, useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { buildMilestones, buildReminders, buildSummary, determineRisk, getDealStatus, statusLabelClass } from './utils';
 import { collectReminders } from './reminderEngine';
-import type { Contact, ContactRole, DealStatus, DocumentStatus, LoanStatus, NotaireStatus, ReminderItem, Transaction } from './types';
+import type { Contact, ContactRole, DealStatus, DocumentStatus, LoanStatus, NotaireStatus, ReminderItem, Transaction, TransactionStage } from './types';
 import { deleteContact as deleteContactApi, deleteDeal as deleteDealApi, fetchContacts, fetchDeals, saveContact as saveContactApi, saveDeal, signIn, signUp, signOut, getSession, onAuthStateChange } from './api';
 import { supabaseReady } from './supabaseClient';
+import { demoTransactions, demoContacts, faqData, dayMs, daysAgo, daysFromNow } from './data/demoData';
+import { GanttChart } from './components/GanttChart';
+import { KanbanBoard } from './components/KanbanBoard';
+import { FileUpload, loadDocumentsForDeal } from './components/FileUpload';
+import { EmailTemplateSelector } from './components/EmailTemplateSelector';
+import { UpgradeModal } from './components/UpgradeModal';
 
 const REMINDER_INTERVAL_MS = 60_000;
 
 type Notification = { message: string; type: 'success' | 'error' } | null;
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
+const addDays = (date: string, days: number): string => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+};
 
-const makeEmptyTransaction = (): Transaction => ({
-  id: '', property: '', buyer: '', buyerId: undefined, seller: '', sellerId: undefined,
-  compromisDate: todayStr(), notaire: '', notaireId: undefined, price: 0,
-  loanStatus: 'pending', documentStatus: 'missing', notaireStatus: 'not ready', completed: false
-});
+const makeEmptyTransaction = (): Transaction => {
+  const today = todayStr();
+  return {
+    id: '',
+    property: '',
+    buyer: '',
+    buyerId: undefined,
+    seller: '',
+    sellerId: undefined,
+    notaire: '',
+    notaireId: undefined,
+    price: 0,
+    compromisDate: today,
+    compromisCompleted: true,
+    withdrawalDeadline: addDays(today, 10),
+    withdrawalStatus: 'in progress',
+    loanRequestDate: today,
+    loanApprovalDeadline: addDays(today, 45),
+    loanStatus: 'pending',
+    documentDeadline: addDays(today, 30),
+    documentStatus: 'missing',
+    notaireStatus: 'pending',
+    signingScheduledDate: addDays(today, 90),
+    signingStatus: 'scheduled',
+    currentStage: 'compromis',
+    completed: false,
+    lastUpdated: new Date().toISOString(),
+    createdAt: new Date().toISOString()
+  };
+};
 
 const emptyContact: Contact = { id: '', name: '', role: 'buyer', email: '', phone: '' };
 
 const statusBadge = (value: string) => {
-  const color = value.includes('approved') || value.includes('complete') || value.includes('ready') || value === 'on track' ? 'badge-good' : 'badge-warning';
-  return <span className={`status-badge ${color}`}>{value}</span>;
+  const color = value.includes('approved') || value.includes('complete') || value.includes('ready') || value === 'on track' ? 'badge-good' 
+    : value === 'critical' ? 'badge-danger'
+    : value === 'at risk' ? 'badge-warning'
+    : 'badge-warning';
+  const label = value === 'critical' ? 'Critique' : value === 'at risk' ? 'À risque' : value === 'on track' ? 'En ordre' : value;
+  return <span className={`status-badge ${color}`}>{label}</span>;
 };
 const roleLabel = (role: ContactRole) => role.replace(/\b\w/g, (c) => c.toUpperCase());
 
-// ── Demo data — scénario immobilier réaliste ──
-const demoTransactions: Transaction[] = [
-  {
-    id: 'demo-1',
-    property: 'Appartement T3 — 12 rue de la République, Lyon 6e',
-    buyer: 'Camille Dubois',
-    seller: 'Marc Lefevre',
-    compromisDate: new Date(Date.now() - 20 * 86400000).toISOString().slice(0, 10),
-    notaire: 'Me. Philippe Garnier',
-    price: 420000,
-    loanStatus: 'approved',
-    documentStatus: 'complete',
-    notaireStatus: 'ready',
-    completed: false
-  },
-  {
-    id: 'demo-2',
-    property: 'Maison 4 pièces — Allée des Tilleuls, Marseille 8e',
-    buyer: 'Thomas Rivière',
-    seller: 'Sophie Mercier',
-    compromisDate: new Date(Date.now() - 38 * 86400000).toISOString().slice(0, 10),
-    notaire: 'Me. Audrey Fontaine',
-    price: 585000,
-    loanStatus: 'pending',
-    documentStatus: 'missing',
-    notaireStatus: 'not ready',
-    completed: false
-  },
-  {
-    id: 'demo-3',
-    property: 'Studio — 8 rue du Faubourg, Paris 11e',
-    buyer: 'Lucas Martin',
-    seller: 'Isabelle Laurent',
-    compromisDate: new Date(Date.now() - 55 * 86400000).toISOString().slice(0, 10),
-    notaire: 'Me. Claire Dubois',
-    price: 275000,
-    loanStatus: 'refused',
-    documentStatus: 'missing',
-    notaireStatus: 'not ready',
-    completed: false
-  }
-];
-const demoContacts: Contact[] = [
-  { id: 'demo-c1', name: 'Camille Dubois', role: 'buyer', email: 'camille.dubois@email.fr', phone: '06 23 45 67 89' },
-  { id: 'demo-c2', name: 'Sophie Mercier', role: 'seller', email: 'sophie.mercier@email.fr', phone: '06 98 76 54 32' },
-  { id: 'demo-c3', name: 'Me. Philippe Garnier', role: 'notaire', email: 'pgarnier@notaires.fr', phone: '04 78 42 18 00' },
-  { id: 'demo-c4', name: 'Thomas Rivière', role: 'buyer', email: 'thomas.riviere@email.fr', phone: '06 12 34 56 78' },
-  { id: 'demo-c5', name: 'Me. Audrey Fontaine', role: 'notaire', email: 'afontaine@notaires.fr', phone: '04 93 85 12 00' }
-];
+// (Demo data + helpers are now imported from ./data/demoData)
 
-// ── Story-driven demo steps ──
+// ── Story-driven demo steps (derived from any deal so it stays consistent + fresh) ──
 type DemoStep = {
   id: number;
   title: string;
@@ -86,22 +78,90 @@ type DemoStep = {
   detail: string;
 };
 
-const demoStorySteps: DemoStep[] = [
-  { id: 1, title: 'Compromis de vente signé', description: 'Le compromis est signé entre M. Lefevre (vendeur) et Mme Dubois (acheteuse) pour l\'appartement de Lyon 6e — 420 000 €.', status: 'done', icon: '✍️', detail: '14 mai 2026 — Toutes les conditions suspensives sont mentionnées.' },
-  { id: 2, title: 'Délai de rétractation purgé', description: 'Les 10 jours de rétractation SRU sont écoulés. L\'acheteuse ne s\'est pas rétractée.', status: 'done', icon: '✅', detail: '24 mai 2026 — Le dossier est sécurisé juridiquement.' },
-  { id: 3, title: 'Financement bancaire', description: 'L\'acheteuse a obtenu son accord de principe. La banque a émis l\'offre de prêt.', status: 'done', icon: '🏦', detail: '5 juin 2026 — Prêt accepté : 380 000 € sur 20 ans.' },
-  { id: 4, title: 'Documents notaire', description: 'Le notaire Me Garnier a reçu toutes les pièces : diagnostics, titre de propriété, PV d\'AG.', status: 'done', icon: '📄', detail: '10 juin 2026 — Dossier complet chez le notaire.' },
-  { id: 5, title: 'Signature de l\'acte authentique', description: 'La signature est programmée en l\'étude de Me Garnier.', status: 'active', icon: '🏠', detail: 'Prévue le 12 août 2026 — J-72 avant la signature.' },
-];
+const formatDateFr = (iso?: string): string => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+};
 
-const faqData = [
-  { q: 'Quels types de biens puis-je suivre ?', a: 'Appartements, maisons, terrains, locaux commerciaux — tout type de transaction immobilière avec un compromis de vente.' },
-  { q: 'Les données sont-elles sécurisées ?', a: 'Oui. Conforme RGPD et hébergé en France. Vos données ne sont jamais partagées avec des tiers.' },
-  { q: 'Puis-je ajouter mon notaire ou mon banquier ?', a: 'Oui. Créez des contacts avec email et numéro de téléphone pour relancer directement depuis l\'application.' },
-  { q: 'Que se passe-t-il si un délai expire ?', a: 'Une notification apparaît en rouge dans le tableau de bord, et vous recevez une alerte avec les coordonnées du contact à relancer.' },
-  { q: 'Est-ce que je peux essayer gratuitement ?', a: 'Oui. Le plan Gratuit vous permet de suivre 1 dossier. Le plan Pro à 19€/mois est sans limite.' },
-  { q: 'Comment sont calculés les délais ?', a: 'Basés sur le droit français : 10 jours de rétractation, 45 jours pour la condition suspensive de prêt, 30 jours pour les documents notaire.' }
-];
+const buildDemoStorySteps = (deal: Transaction): DemoStep[] => {
+  const m = buildMilestones(deal);
+  const priceStr = (deal.price || 0).toLocaleString('fr-FR');
+  const daysToSigning = deal.signingScheduledDate
+    ? Math.ceil((new Date(deal.signingScheduledDate).getTime() - Date.now()) / dayMs)
+    : null;
+  const signingStatus: 'done' | 'active' | 'upcoming' =
+    deal.signingStatus === 'completed' ? 'done'
+    : (deal.documentStatus === 'complete' && deal.loanStatus === 'approved') ? 'active'
+    : 'upcoming';
+
+  return [
+    {
+      id: 1,
+      title: 'Compromis de vente signé',
+      description: `Le compromis est signé entre ${deal.seller || 'le vendeur'} et ${deal.buyer || "l'acheteur"} pour ${deal.property || 'le bien'} — ${priceStr} €.`,
+      status: deal.compromisCompleted ? 'done' : 'upcoming',
+      icon: '✍️',
+      detail: `${formatDateFr(deal.compromisDate)} — Toutes les conditions suspensives sont mentionnées.`
+    },
+    {
+      id: 2,
+      title: 'Délai de rétractation purgé',
+      description: 'Les 10 jours de rétractation SRU sont écoulés. L\'acheteur ne s\'est pas rétracté.',
+      status: deal.withdrawalStatus === 'complete' ? 'done' : 'active',
+      icon: '✅',
+      detail: `${formatDateFr(m.withdrawalDeadline)} — Le dossier est sécurisé juridiquement.`
+    },
+    {
+      id: 3,
+      title: 'Financement bancaire',
+      description:
+        deal.loanStatus === 'approved'
+          ? 'L\'acheteur a obtenu son accord de principe. La banque a émis l\'offre de prêt.'
+          : deal.loanStatus === 'refused'
+          ? 'L\'offre de prêt a été refusée par la banque. Financement alternatif à trouver.'
+          : 'L\'acheteur attend l\'accord de la banque.',
+      status: deal.loanStatus === 'approved' ? 'done' : (deal.loanStatus === 'refused' ? 'upcoming' : 'active'),
+      icon: '🏦',
+      detail:
+        deal.loanStatus === 'approved' && deal.loanAmount
+          ? `${formatDateFr(m.loanApprovalDeadline)} — Prêt accepté : ${deal.loanAmount.toLocaleString('fr-FR')} €.`
+          : `${formatDateFr(m.loanApprovalDeadline)} — ${deal.loanStatus === 'refused' ? 'Prêt refusé' : 'En attente de la banque'}.`
+    },
+    {
+      id: 4,
+      title: 'Documents notaire',
+      description:
+        deal.documentStatus === 'complete'
+          ? `Le notaire ${deal.notaire || ''} a reçu toutes les pièces : diagnostics, titre de propriété, PV d'AG.`
+          : deal.documentStatus === 'incomplete'
+          ? 'Certains documents manquent encore au dossier notaire.'
+          : 'Aucun document n\'a été transmis au notaire pour l\'instant.',
+      status: deal.documentStatus === 'complete' ? 'done' : (deal.documentStatus === 'incomplete' ? 'active' : 'upcoming'),
+      icon: '📄',
+      detail: `${formatDateFr(m.documentDeadline)} — Échéance légale des documents.`
+    },
+    {
+      id: 5,
+      title: 'Signature de l\'acte authentique',
+      description:
+        deal.signingStatus === 'completed'
+          ? 'L\'acte authentique a été signé. La transaction est finalisée.'
+          : `La signature est programmée${deal.notaire ? ` en l'étude de ${deal.notaire}` : ''}.`,
+      status: signingStatus,
+      icon: '🏠',
+      detail:
+        deal.signingStatus === 'completed'
+          ? `${formatDateFr(m.saleDate)} — Vente finalisée.`
+          : daysToSigning != null && daysToSigning >= 0
+          ? `Prévue le ${formatDateFr(m.saleDate)} — J-${daysToSigning} avant la signature.`
+          : `Prévue le ${formatDateFr(m.saleDate)}.`
+    }
+  ];
+};
+
+// (faqData is now imported from ./data/demoData)
 
 function App() {
   const [user, setUser] = useState<any | null>(null);
@@ -126,6 +186,26 @@ function App() {
   const [showFaq, setShowFaq] = useState<number | null>(null);
   const [demoStoryStep, setDemoStoryStep] = useState(0);
   const [activeTab, setActiveTab] = useState<'overview' | 'dossiers' | 'contacts' | 'alertes'>('overview');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [pendingMigration, setPendingMigration] = useState(false);
+  const [dossiersView, setDossiersView] = useState<'table' | 'kanban'>('table');
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [dealDocuments, setDealDocuments] = useState<Record<string, { name: string; url: string; size: number; uploadedAt: string }[]>>({});
+
+  const DEMO_PENDING_KEY = 'sv-immo:pending-demo-snapshot';
+  const saveDemoSnapshot = (txns: Transaction[], cons: Contact[]) => {
+    try { localStorage.setItem(DEMO_PENDING_KEY, JSON.stringify({ transactions: txns, contacts: cons })); } catch {}
+  };
+  const clearDemoSnapshot = () => { try { localStorage.removeItem(DEMO_PENDING_KEY); } catch {} };
+  const loadDemoSnapshot = (): { transactions: Transaction[]; contacts: Contact[] } | null => {
+    try {
+      const raw = localStorage.getItem(DEMO_PENDING_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.transactions || !parsed?.contacts) return null;
+      return parsed;
+    } catch { return null; }
+  };
 
   const loadData = async (userId: string) => {
     setLoading(true); setNotification(null);
@@ -161,6 +241,73 @@ function App() {
   useEffect(() => {
     if ('Notification' in window) { Notification.requestPermission().then((permission) => setNotificationPermission(permission)); }
   }, []);
+
+  // ── Demo → real account migration ──
+  const migrateSnapshotToAccount = async (userId: string, snapTransactions: Transaction[], snapContacts: Contact[]) => {
+    setLoading(true);
+    try {
+      // 1) Save contacts first, build a map of demo ID → new server UUID
+      const idMap: Record<string, string> = {};
+      for (const contact of snapContacts) {
+        const { id: _ignored, ...payload } = contact;
+        const saved = await saveContactApi({ ...payload, id: '' }, userId);
+        idMap[contact.id] = saved.id;
+      }
+      // 2) Save transactions with the new contact IDs
+      for (const txn of snapTransactions) {
+        const payload: Transaction = {
+          ...txn,
+          id: '',
+          buyerId: txn.buyerId ? idMap[txn.buyerId] : undefined,
+          sellerId: txn.sellerId ? idMap[txn.sellerId] : undefined,
+          notaireId: txn.notaireId ? idMap[txn.notaireId] : undefined,
+        };
+        await saveDeal(payload, userId);
+      }
+      // 3) Switch out of demo and reload real data
+      setDemoMode(false);
+      await loadData(userId);
+      notify(`✅ ${snapTransactions.length} dossier${snapTransactions.length > 1 ? 's' : ''} et ${snapContacts.length} contact${snapContacts.length > 1 ? 's' : ''} sauvegardés dans votre compte.`, 'success');
+    } catch (error: any) {
+      const message = error?.message || error?.error_description || JSON.stringify(error);
+      notify(`Erreur lors de la sauvegarde: ${message}`, 'error');
+    } finally {
+      setLoading(false);
+      setPendingMigration(false);
+      clearDemoSnapshot();
+    }
+  };
+
+  // After sign-up completes, run the migration
+  useEffect(() => {
+    if (pendingMigration && user && demoMode) {
+      const snap = loadDemoSnapshot();
+      if (snap && snap.transactions.length > 0) {
+        migrateSnapshotToAccount(user.id, snap.transactions, snap.contacts);
+      } else {
+        // Fall back to the static demo seed if no snapshot is in localStorage
+        migrateSnapshotToAccount(user.id, transactions.length > 0 ? transactions : demoTransactions, contacts.length > 0 ? contacts : demoContacts);
+      }
+    }
+  }, [pendingMigration, user, demoMode]);
+
+  const handleSaveDemoToAccount = () => {
+    if (!supabaseReady) {
+      notify('Configuration Supabase manquante. Renseignez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.', 'error');
+      return;
+    }
+    // Persist the current demo state so it survives a page reload during email confirmation
+    saveDemoSnapshot(transactions.length > 0 ? transactions : demoTransactions, contacts.length > 0 ? contacts : demoContacts);
+    if (user) {
+      // Already signed in — migrate directly
+      setPendingMigration(true);
+    } else {
+      // Need to sign up / sign in first
+      setAuthMode('signUp');
+      setAuthForm({ email: '', password: '' });
+      setShowAuthModal(true);
+    }
+  };
 
   const milestones = useMemo(() => buildMilestones(transaction), [transaction]);
   const reminders = useMemo(() => {
@@ -200,7 +347,14 @@ function App() {
     try {
       const response = authMode === 'signIn' ? await signIn(authForm.email, authForm.password) : await signUp(authForm.email, authForm.password);
       if (response.error) throw response.error;
-      if (authMode === 'signUp') notify('Vérifiez vos emails pour confirmer l\'inscription.', 'success');
+      if (authMode === 'signUp') {
+        notify('Vérifiez vos emails pour confirmer l\'inscription. Vos dossiers de démo seront sauvegardés automatiquement après confirmation.', 'success');
+        if (demoMode) setPendingMigration(true);
+      } else if (demoMode) {
+        // User is signing in while in demo mode — migrate on success
+        setPendingMigration(true);
+      }
+      setShowAuthModal(false);
     } catch (error) { notify(`Erreur d'authentification: ${error}`, 'error'); } finally { setLoading(false); }
   };
 
@@ -371,11 +525,16 @@ function App() {
                   <span>En cours</span>
                 </div>
                 <div className="lp-mockup-timeline">
-                  <div className="lp-mockup-step past"><div className="lp-mockup-dot" /> <div><strong>Compromis signé</strong><span>14 mai 2026</span></div> <span>✅</span></div>
-                  <div className="lp-mockup-step past"><div className="lp-mockup-dot" /> <div><strong>Délai rétractation purgé</strong><span>24 mai 2026</span></div> <span>✅</span></div>
-                  <div className="lp-mockup-step past"><div className="lp-mockup-dot" /> <div><strong>Prêt accepté</strong><span>5 juin 2026</span></div> <span>✅</span></div>
-                  <div className="lp-mockup-step active"><div className="lp-mockup-dot lp-mockup-pulse" /> <div><strong>Documents notaire</strong><span>Dossier complet</span></div> <span>📄</span></div>
-                  <div className="lp-mockup-step"><div className="lp-mockup-dot" /> <div><strong>Signature acte authentique</strong><span>Prévue le 12 août 2026</span></div> <span>📅</span></div>
+                  {buildDemoStorySteps(demoTransactions[0]).slice(0, 4).map((step) => {
+                    const lastDetailDate = step.detail.split(' — ')[0];
+                    return (
+                      <div key={step.id} className={`lp-mockup-step ${step.status === 'done' ? 'past' : step.status === 'active' ? 'active' : ''}`}>
+                        <div className={`lp-mockup-dot ${step.status === 'active' ? 'lp-mockup-pulse' : ''}`} />
+                        <div><strong>{step.title}</strong><span>{lastDetailDate}</span></div>
+                        <span>{step.icon}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -528,11 +687,11 @@ function App() {
                 </div>
               </div>
               <div className="lp-demo-steps">
-                {demoStorySteps.map((step, i) => (
+                {buildDemoStorySteps(demoTransactions[0]).map((step, i, arr) => (
                   <div key={step.id} className={`lp-demo-step lp-demo-step-${step.status}`} onClick={() => setDemoStoryStep(i)}>
                     <div className="lp-demo-step-marker">
                       <div className="lp-demo-step-dot">{step.icon}</div>
-                      {i < demoStorySteps.length - 1 && <div className="lp-demo-step-line" />}
+                      {i < arr.length - 1 && <div className="lp-demo-step-line" />}
                     </div>
                     <div className="lp-demo-step-content">
                       <div className="lp-demo-step-title">{step.title}</div>
@@ -553,25 +712,26 @@ function App() {
           </div>
         </section>
 
-        {/* ── SOCIAL PROOF (mock data) ── */}
+        {/* ── Notre promesse (anciennement "résultats constatés" avec mocks) ── */}
         <section id="testimonials" className="lp-section lp-section-white">
           <div className="lp-container">
-            <h2 className="lp-section-title">Résultats constatés</h2>
-            <div className="lp-stats-row">
-              <div className="lp-stat-card">
-                <div className="lp-stat-number">+X</div>
-                <div className="lp-stat-label">agences utilisent déjà le suivi</div>
-                <div className="lp-stat-mock">donnée mock — en cours de collecte</div>
+            <h2 className="lp-section-title">Notre promesse</h2>
+            <p className="lp-section-sub">Ce que vous obtenez dès la première utilisation.</p>
+            <div className="lp-stats-replaced">
+              <div className="lp-promise-card">
+                <span className="lp-promise-icon">📁</span>
+                <div className="lp-promise-title">Tous vos dossiers centralisés</div>
+                <div className="lp-promise-desc">Bien, acheteur, vendeur, notaire, prix, dates, étapes — un seul endroit.</div>
               </div>
-              <div className="lp-stat-card">
-                <div className="lp-stat-number">−X%</div>
-                <div className="lp-stat-label">de dossiers oubliés entre compromis et acte</div>
-                <div className="lp-stat-mock">donnée mock — estimation interne</div>
+              <div className="lp-promise-card">
+                <span className="lp-promise-icon">⏰</span>
+                <div className="lp-promise-title">Zéro délai légal oublié</div>
+                <div className="lp-promise-desc">Calcul automatique des J+10, J+30, J+45, J+90 conformes au droit français.</div>
               </div>
-              <div className="lp-stat-card">
-                <div className="lp-stat-number">X min</div>
-                <div className="lp-stat-label">pour créer un dossier de vente complet</div>
-                <div className="lp-stat-mock">donnée mock — estimation interne</div>
+              <div className="lp-promise-card">
+                <span className="lp-promise-icon">🔔</span>
+                <div className="lp-promise-title">Alertes intelligentes</div>
+                <div className="lp-promise-desc">Les dossiers en retard remontent en haut. Templates d'emails juridiques prêts à l'emploi.</div>
               </div>
             </div>
           </div>
@@ -684,7 +844,7 @@ function App() {
             </div>
           </div>
           <div className="story-timeline">
-            {demoStorySteps.map((step, i) => (
+            {(activeDeal ? buildDemoStorySteps(activeDeal) : []).map((step, i, arr) => (
               <div
                 key={step.id}
                 className={`story-step story-step-${step.status} ${demoStoryStep === i ? 'story-step-selected' : ''}`}
@@ -692,7 +852,7 @@ function App() {
               >
                 <div className="story-step-marker">
                   <div className="story-step-dot">{step.icon}</div>
-                  {i < demoStorySteps.length - 1 && <div className="story-step-line" />}
+                  {i < arr.length - 1 && <div className="story-step-line" />}
                 </div>
                 <div className="story-step-body">
                   <div className="story-step-title">{step.title}</div>
@@ -774,6 +934,9 @@ function App() {
           </ul>
         )}
       </section>
+
+      {/* ── Gantt chart for active deal ── */}
+      {activeDeal && <GanttChart transaction={activeDeal} />}
     </>
     );
   };
@@ -829,8 +992,8 @@ function App() {
                         {riskStatus === 'at risk' && <span className="status-pill badge-danger" style={{ display: 'block', marginTop: 4 }}>⚠️ Action requise</span>}
                       </td>
                       <td><select className="inline-select" value={item.loanStatus} onChange={(e) => setField('loanStatus', e.target.value)}><option value="pending">⏳ En cours</option><option value="approved">✅ Accepté</option><option value="refused">❌ Refusé</option></select></td>
-                      <td><select className="inline-select" value={item.documentStatus} onChange={(e) => setField('documentStatus', e.target.value)}><option value="missing">❌ Manquant</option><option value="complete">✅ Complet</option></select></td>
-                      <td><select className="inline-select" value={item.notaireStatus} onChange={(e) => setField('notaireStatus', e.target.value)}><option value="not ready">⏳ Pas prêt</option><option value="ready">✅ Prêt</option></select></td>
+                      <td><select className="inline-select" value={item.documentStatus} onChange={(e) => setField('documentStatus', e.target.value as DocumentStatus)}><option value="missing">❌ Manquant</option><option value="incomplete">🔍 En partie</option><option value="complete">✅ Complet</option></select></td>
+<td><select className="inline-select" value={item.notaireStatus} onChange={(e) => setField('notaireStatus', e.target.value as NotaireStatus)}><option value="not started">⏳ Non commencé</option><option value="pending">🔍 En cours</option><option value="ready">✅ Prêt</option></select></td>
                       <td style={{ whiteSpace: 'nowrap' }}>{itemMilestones.saleDate}<br /><small style={{ color: '#6b7685' }}>Compromis: {item.compromisDate}</small></td>
                       <td><button type="button" className="tiny-button" onClick={() => selectTransaction(item.id)}>Éditer</button><button type="button" className="tiny-button danger" onClick={() => requestDeleteDeal(item.id)}>Suppr</button></td>
                     </tr>
@@ -864,12 +1027,84 @@ function App() {
             <label>Nom notaire<input value={transaction.notaire} onChange={(e) => handleChange('notaire', e.target.value)} placeholder="Notaire" /></label>
             <label>Prix (€)<input type="number" min="0" value={transaction.price} onChange={(e) => handleChange('price', Number(e.target.value))} /></label>
             <label>Prêt<select value={transaction.loanStatus} onChange={(e) => handleChange('loanStatus', e.target.value as LoanStatus)}><option value="pending">En cours</option><option value="approved">Accepté</option><option value="refused">Refusé</option></select></label>
-            <label>Documents notaire<select value={transaction.documentStatus} onChange={(e) => handleChange('documentStatus', e.target.value as DocumentStatus)}><option value="missing">Manquants</option><option value="complete">Complets</option></select></label>
-            <label>Notaire<select value={transaction.notaireStatus} onChange={(e) => handleChange('notaireStatus', e.target.value as NotaireStatus)}><option value="not ready">Pas prêt</option><option value="ready">Prêt</option></select></label>
+            <label>Documents notaire<select value={transaction.documentStatus} onChange={(e) => handleChange('documentStatus', e.target.value as DocumentStatus)}><option value="missing">Manquants</option><option value="incomplete">En partie</option><option value="complete">Complets</option></select></label>
+            <label>Notaire<select value={transaction.notaireStatus} onChange={(e) => handleChange('notaireStatus', e.target.value as NotaireStatus)}><option value="not started">Non commencé</option><option value="pending">En cours</option><option value="ready">Prêt</option></select></label>
             <label className="checkbox-label"><input type="checkbox" checked={transaction.completed} onChange={(e) => handleChange('completed', e.target.checked)} /> Acte authentique signé</label>
           </div>
         )}
       </section>
+
+      {dossiersView === 'kanban' ? (
+        <KanbanBoard
+          transactions={filteredTransactions}
+          onSelect={selectTransaction}
+        />
+      ) : (
+        <section className="card dashboard-card">
+          <div className="dashboard-header">
+            <div><h2>Dossiers de vente</h2></div>
+            <div className="dashboard-controls">
+              <input className="search-input" type="text" placeholder="🔍 Rechercher un bien, acheteur..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              <div className="filter-buttons">
+                {(['all', 'active', 'at risk', 'closing soon', 'completed'] as DealStatus[]).map((status) => (
+                  <button key={status} className={filter === status ? 'filter-button active' : 'filter-button'} type="button" onClick={() => setFilter(status)}>
+                    {status === 'all' ? 'Tous' : status === 'active' ? 'En cours' : status === 'at risk' ? 'Bloqué' : status === 'closing soon' ? 'Signature proche' : 'Signé'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table className="deal-table">
+              <thead><tr><th>Bien immobilier</th><th>Statut</th><th>Prêt</th><th>Docs notaire</th><th>Notaire</th><th>Signature acte</th><th>Actions</th></tr></thead>
+              <tbody>
+                {filteredTransactions.length === 0 ? (
+                  <tr><td colSpan={7} className="empty-row"><div className="empty-state"><strong>{searchQuery || filter !== 'all' ? 'Aucun résultat' : 'Pas encore de dossiers'}</strong><span>{searchQuery || filter !== 'all' ? 'Essayez une autre recherche.' : 'Ajoutez votre premier dossier de vente ci-dessus.'}</span></div></td></tr>
+                ) : (
+                  filteredTransactions.map((item) => {
+                    const status = getDealStatus(item);
+                    const itemMilestones = buildMilestones(item);
+                    const riskStatus = determineRisk(item);
+                    const setField = (field: keyof Transaction, value: any) => {
+                      const updated = { ...item, [field]: value };
+                      setTransactions((current) => current.map((t) => t.id === item.id ? updated : t));
+                      if (selectedDealId === item.id) setTransaction(updated);
+                    };
+                    return (
+                      <tr key={item.id}>
+                        <td style={{ fontWeight: 600 }}>{item.property}</td>
+                        <td>
+                          <span className={`status-pill ${statusLabelClass(status)}`}>{status === 'active' ? 'En cours' : status === 'at risk' ? 'Bloqué' : status === 'closing soon' ? 'Signature proche' : 'Signé'}</span>
+                          {riskStatus === 'at risk' && <span className="status-pill badge-danger" style={{ display: 'block', marginTop: 4 }}>⚠️ Action requise</span>}
+                        </td>
+                        <td><select className="inline-select" value={item.loanStatus} onChange={(e) => setField('loanStatus', e.target.value)}><option value="pending">⏳ En cours</option><option value="approved">✅ Accepté</option><option value="refused">❌ Refusé</option></select></td>
+                        <td><select className="inline-select" value={item.documentStatus} onChange={(e) => setField('documentStatus', e.target.value as DocumentStatus)}><option value="missing">❌ Manquant</option><option value="incomplete">🔍 En partie</option><option value="complete">✅ Complet</option></select></td>
+                        <td><select className="inline-select" value={item.notaireStatus} onChange={(e) => setField('notaireStatus', e.target.value as NotaireStatus)}><option value="not started">⏳ Non commencé</option><option value="pending">🔍 En cours</option><option value="ready">✅ Prêt</option></select></td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{itemMilestones.saleDate}<br /><small style={{ color: '#6b7685' }}>Compromis: {item.compromisDate}</small></td>
+                        <td><button type="button" className="tiny-button" onClick={() => selectTransaction(item.id)}>Éditer</button><button type="button" className="tiny-button danger" onClick={() => requestDeleteDeal(item.id)}>Suppr</button></td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* View toggle */}
+      <div className="view-toggle" style={{ marginBottom: 20, justifyContent: 'center', display: 'flex' }}>
+        <button className={dossiersView === 'table' ? 'active' : ''} onClick={() => setDossiersView('table')} type="button">📋 Tableau</button>
+        <button className={dossiersView === 'kanban' ? 'active' : ''} onClick={() => setDossiersView('kanban')} type="button">📊 Kanban</button>
+      </div>
+
+      {selectedDealId && transaction.id && (
+        <FileUpload
+          dealId={transaction.id}
+          documents={dealDocuments[transaction.id] ?? []}
+          onDocumentsChange={(docs) => setDealDocuments((prev) => ({ ...prev, [transaction.id!]: docs }))}
+        />
+      )}
 
       <section className="card export-card"><h2>📄 Export dossier</h2><p>Copiez un résumé ou générez un PDF de la timeline pour votre client ou notaire.</p><div className="form-actions" style={{ justifyContent: 'flex-start' }}><button onClick={copySummary}>📋 Copier le résumé</button><button onClick={generatePDF} className="secondary">📄 Télécharger la timeline (PDF)</button></div></section>
     </>
@@ -965,6 +1200,14 @@ function App() {
           ))}</div>
         )}
       </section>
+
+      {activeDeal && (
+        <EmailTemplateSelector
+          transaction={activeDeal}
+          contacts={contacts}
+          onNotify={(message, type) => notify(message, type || 'success')}
+        />
+      )}
     </>);
   };
 
@@ -996,6 +1239,40 @@ function App() {
               <button type="button" className="secondary" onClick={cancelDelete}>Annuler</button>
               <button type="button" className="danger" onClick={confirmDelete}>Supprimer</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showUpgrade && (
+        <UpgradeModal onClose={() => setShowUpgrade(false)} onNotify={(message, type) => notify(message, type || 'success')} />
+      )}
+
+      {showAuthModal && (
+        <div className="modal-overlay" onClick={() => !loading && setShowAuthModal(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <h3>{authMode === 'signUp' ? 'Créer votre compte' : 'Se connecter'}</h3>
+            <p style={{ marginTop: 0, color: 'var(--gray-500)' }}>
+              {authMode === 'signUp'
+                ? 'Créez votre compte gratuit pour sauvegarder ces dossiers et continuer à les suivre où que vous soyez.'
+                : 'Connectez-vous pour sauvegarder vos dossiers de démo dans votre compte.'}
+            </p>
+            <div className="field-grid" style={{ marginTop: 12 }}>
+              <label>Email<input type="email" value={authForm.email} onChange={(e) => handleAuthFormChange('email', e.target.value)} placeholder="vous@exemple.fr" autoComplete="email" /></label>
+              <label>Mot de passe<input type="password" value={authForm.password} onChange={(e) => handleAuthFormChange('password', e.target.value)} placeholder="••••••••" autoComplete={authMode === 'signUp' ? 'new-password' : 'current-password'} /></label>
+            </div>
+            <div className="modal-actions" style={{ marginTop: 18 }}>
+              <button type="button" className="secondary" onClick={() => setShowAuthModal(false)} disabled={loading}>Annuler</button>
+              <button type="button" onClick={loginUser} disabled={loading || !authForm.email.trim() || !authForm.password.trim()}>
+                {authMode === 'signUp' ? "Créer et sauvegarder" : 'Se connecter'}
+              </button>
+            </div>
+            <p style={{ textAlign: 'center', marginTop: 14, fontSize: '0.85rem', color: 'var(--gray-500)' }}>
+              {authMode === 'signUp' ? (
+                <>Déjà un compte ? <button type="button" onClick={() => setAuthMode('signIn')} style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontWeight: 600, padding: 0 }}>Se connecter</button></>
+              ) : (
+                <>Pas encore de compte ? <button type="button" onClick={() => setAuthMode('signUp')} style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontWeight: 600, padding: 0 }}>Créer un compte</button></>
+              )}
+            </p>
           </div>
         </div>
       )}
@@ -1038,6 +1315,18 @@ function App() {
             <div className="demo-avatar" title="Utilisateur démo">
               <span>👤</span>
             </div>
+            {demoMode && (
+              <button
+                type="button"
+                onClick={handleSaveDemoToAccount}
+                disabled={loading}
+                title="Sauvegarder ces dossiers de démo dans votre compte"
+                style={{ padding: '8px 14px', fontSize: '0.85rem', background: 'var(--emerald)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}
+              >
+                💾 Sauvegarder
+              </button>
+            )}
+            <button type="button" className="secondary" onClick={() => setShowUpgrade(true)} style={{ padding: '8px 14px', fontSize: '0.85rem', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', border: 'none' }}>👑 Passer Pro</button>
             <button type="button" className="secondary" onClick={logout} disabled={loading} style={{ padding: '8px 14px', fontSize: '0.85rem' }}>Quitter</button>
           </div>
         </header>

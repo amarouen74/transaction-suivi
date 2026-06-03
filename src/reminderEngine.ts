@@ -9,13 +9,6 @@ const daysBetween = (date: string) => {
 
 const getContact = (contacts: Contact[], id?: string) => contacts.find((item) => item.id === id);
 
-const getContactRoleForMessage = (message: string) => {
-  if (message.includes('Notaire documents')) return 'notaire';
-  if (message.includes('Loan')) return 'buyer';
-  if (message.includes('Missing bank') || message.includes('review deal')) return 'buyer';
-  return 'buyer';
-};
-
 const normalizeReminder = (
   transaction: Transaction,
   message: string,
@@ -48,10 +41,10 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
   const daysToWithdrawal = daysBetween(milestones.withdrawalDeadline);
 
   // 🔴 Critical overdue warnings
-  if (transaction.loanStatus === 'pending' && daysToLoan < 0) {
+  if (transaction.loanStatus === 'refused') {
     items.push(normalizeReminder(
       transaction,
-      `🔴 Condition suspensive de prêt EXPIRÉE depuis ${Math.abs(daysToLoan)} jour(s) — Votre commission est menacée !`,
+      `🔴 Prêt REFUSÉ — Trouver un financement alternatif ou le deal est perdu`,
       milestones.loanApprovalDeadline,
       'buyer',
       buyer?.name,
@@ -59,44 +52,10 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
     ));
   }
 
-  if (transaction.documentStatus === 'missing' && daysToDocs < 0) {
+  if (transaction.loanStatus === 'pending' && daysToLoan < 0) {
     items.push(normalizeReminder(
       transaction,
-      `🔴 Documents notaire EN RETARD de ${Math.abs(daysToDocs)} jour(s) — Relancez immédiatement`,
-      milestones.documentDeadline,
-      'notaire',
-      notaire?.name,
-      notaire?.email
-    ));
-  }
-
-  if (daysToWithdrawal < 0) {
-    items.push(normalizeReminder(
-      transaction,
-      `✅ Délai de rétractation purgé depuis ${Math.abs(daysToWithdrawal)} jour(s) — Deal sécurisé`,
-      milestones.withdrawalDeadline,
-      'buyer',
-      buyer?.name,
-      buyer?.email
-    ));
-  }
-
-  if (daysToSale < 0) {
-    items.push(normalizeReminder(
-      transaction,
-      `🔴 Date de signature chez le notaire DÉPASSÉE (${milestones.saleDate})`,
-      milestones.saleDate,
-      'seller',
-      seller?.name,
-      seller?.email
-    ));
-  }
-
-  // 🟡 Upcoming warnings / 🔴 J-2 critical
-  if (transaction.loanStatus === 'pending' && daysToLoan <= 7 && daysToLoan >= 0) {
-    items.push(normalizeReminder(
-      transaction,
-      `🟡 Condition suspensive de prêt échéance dans ${daysToLoan} jour(s)`,
+      `🔴 Condition suspensive de prêt EXPIRÉE depuis ${Math.abs(daysToLoan)} jour(s) — Acte annulé si non régularisé`,
       milestones.loanApprovalDeadline,
       'buyer',
       buyer?.name,
@@ -115,10 +74,33 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
     ));
   }
 
-  if (transaction.loanStatus === 'refused') {
+  if (transaction.documentStatus !== 'complete' && daysToDocs < 0) {
     items.push(normalizeReminder(
       transaction,
-      '🔴 Prêt refusé — Trouver une alternative ou le deal est perdu',
+      `🔴 Documents notaire EN RETARD de ${Math.abs(daysToDocs)} jour(s) — Relancez immédiatement`,
+      milestones.documentDeadline,
+      'notaire',
+      notaire?.name,
+      notaire?.email
+    ));
+  }
+
+  if (daysToSale < 0) {
+    items.push(normalizeReminder(
+      transaction,
+      `🔴 Date de signature chez le notaire DÉPASSÉE (${milestones.saleDate})`,
+      milestones.saleDate,
+      'seller',
+      seller?.name,
+      seller?.email
+    ));
+  }
+
+  // 🟡 Upcoming warnings / approaching deadlines
+  if (transaction.loanStatus === 'pending' && daysToLoan <= 7 && daysToLoan > 2) {
+    items.push(normalizeReminder(
+      transaction,
+      `🟡 Condition suspensive de prêt échéance dans ${daysToLoan} jour(s) — Suivi bancaire urgent`,
       milestones.loanApprovalDeadline,
       'buyer',
       buyer?.name,
@@ -126,25 +108,25 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
     ));
   }
 
-  if (transaction.documentStatus === 'missing') {
+  if (transaction.documentStatus === 'incomplete' && daysToDocs <= 7 && daysToDocs >= 0) {
     items.push(normalizeReminder(
       transaction,
-      '🟡 Documents bancaires ou notaire manquants',
-      milestones.documentDeadline,
-      'buyer',
-      buyer?.name,
-      buyer?.email
-    ));
-  }
-
-  if (daysToDocs <= 7 && daysToDocs >= 0) {
-    items.push(normalizeReminder(
-      transaction,
-      `🟡 Échéance documents notaire dans ${daysToDocs} jour(s)`,
+      `🟡 Documents notaire en partie reçus — échéance dans ${daysToDocs} jour(s)`,
       milestones.documentDeadline,
       'notaire',
       notaire?.name,
       notaire?.email
+    ));
+  }
+
+  if (transaction.documentStatus === 'missing') {
+    items.push(normalizeReminder(
+      transaction,
+      `🟡 Documents manquants — à envoyer au notaire avant le ${milestones.documentDeadline}`,
+      milestones.documentDeadline,
+      'buyer',
+      buyer?.name,
+      buyer?.email
     ));
   }
 
@@ -167,6 +149,17 @@ export const getReminderItems = (transaction: Transaction, contacts: Contact[]):
       'buyer',
       buyer?.name,
       buyer?.email
+    ));
+  }
+
+  if (transaction.notaireStatus === 'not started') {
+    items.push(normalizeReminder(
+      transaction,
+      `🟡 Notaire : dossier non commencé — relancer avant le ${milestones.documentDeadline}`,
+      milestones.documentDeadline,
+      'notaire',
+      notaire?.name,
+      notaire?.email
     ));
   }
 

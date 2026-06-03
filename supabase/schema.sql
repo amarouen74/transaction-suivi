@@ -13,6 +13,8 @@ create table contacts (
 create table transactions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users not null,
+  
+  -- Basic info
   property text not null,
   buyer text not null,
   buyer_id uuid,
@@ -20,12 +22,42 @@ create table transactions (
   seller_id uuid,
   notaire text,
   notaire_id uuid,
-  compromis_date date not null,
   price numeric not null,
-  loan_status text not null,
-  document_status text not null,
-  notaire_status text not null,
+  
+  -- Stage tracking with dates
+  compromis_date date not null,
+  compromis_completed boolean default false,
+  
+  withdrawal_deadline date not null,
+  withdrawal_status text not null default 'in progress',
+  
+  loan_request_date date,
+  loan_approval_deadline date not null,
+  loan_status text not null default 'pending',
+  loan_amount numeric,
+  
+  document_deadline date not null,
+  document_status text not null default 'missing',
+  documents_submitted_date date,
+  
+  notaire_status text not null default 'not started',
+  notaire_ready_date date,
+  
+  signing_scheduled_date date,
+  signing_status text not null default 'scheduled',
+  
+  funds_transferred_date date,
+  keys_handed_date date,
+  
+  -- Overall status
+  current_stage text not null default 'compromis',
   completed boolean not null default false,
+  completion_date date,
+  cancelled_date date,
+  cancellation_reason text,
+  
+  -- Internal tracking
+  last_updated timestamp with time zone default now(),
   created_at timestamp with time zone default now()
 );
 
