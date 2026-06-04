@@ -42,7 +42,50 @@ button:hover { background: #047857; }
 .badge-danger { background: #fee2e2; color: #991b1b; }
 .badge-info { background: #dbeafe; color: #1e40af; }
 .notification-error { background: #fee2e2 !important; color: #991b1b !important; }
-.notification { margin-top: 14px; padding: 14px 16px; border-radius: 14px; background: #eff6ff; color: #1e40af; font-weight: 600; }
+.toast-container { position: fixed; top: 80px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toast { pointer-events: auto; min-width: 280px; max-width: 420px; padding: 14px 18px; border-radius: 14px; background: #fff; color: var(--gray-900); font-weight: 600; font-size: 0.9rem; box-shadow: 0 10px 30px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06); border-left: 4px solid var(--emerald); display: flex; align-items: center; gap: 10px; animation: toast-slide-in 0.25s ease-out; }
+.toast-success { border-left-color: var(--emerald); background: #f0fdf4; }
+.toast-error { border-left-color: var(--red); background: #fef2f2; color: #991b1b; }
+.toast-info { border-left-color: #3b82f6; background: #eff6ff; color: #1e40af; }
+.toast-icon { font-size: 1.1rem; flex-shrink: 0; }
+.toast-close { background: transparent; color: inherit; opacity: 0.6; padding: 0; min-height: auto; width: 20px; height: 20px; border-radius: 50%; font-size: 1.1rem; line-height: 1; margin-left: auto; }
+.toast-close:hover { opacity: 1; background: rgba(0,0,0,0.05); }
+.toast-progress { position: absolute; bottom: 0; left: 0; height: 3px; background: currentColor; opacity: 0.3; border-radius: 0 0 14px 14px; animation: toast-progress 3s linear forwards; }
+.toast { position: relative; overflow: hidden; }
+@keyframes toast-slide-in { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes toast-progress { from { width: 100%; } to { width: 0%; } }
+@media (max-width: 600px) { .toast-container { top: 70px; right: 12px; left: 12px; } .toast { min-width: 0; max-width: none; } }
+
+/* ── EmptyState component ── */
+.empty-state-block { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; text-align: center; color: var(--gray-500); background: var(--gray-50); border-radius: 14px; border: 1px dashed var(--gray-200); }
+.empty-state-icon { font-size: 2.4rem; margin-bottom: 10px; opacity: 0.7; }
+.empty-state-title { font-size: 1rem; font-weight: 700; color: var(--gray-700); margin-bottom: 4px; }
+.empty-state-desc { font-size: 0.9rem; color: var(--gray-500); max-width: 360px; line-height: 1.5; }
+
+/* ── Skeleton loader ── */
+.skeleton { display: block; background: linear-gradient(90deg, var(--gray-100) 0%, var(--gray-200) 50%, var(--gray-100) 100%); background-size: 200% 100%; animation: skeleton-shimmer 1.4s ease-in-out infinite; border-radius: 8px; }
+@keyframes skeleton-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* ── Tab badge (counts) ── */
+.demo-sidebar-link-badge { margin-left: auto; background: var(--emerald); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; min-width: 22px; text-align: center; }
+.demo-sidebar-link-active .demo-sidebar-link-badge { background: #fff; color: var(--emerald); }
+
+/* ── Inline field error ── */
+.field-error { color: var(--red); font-size: 0.8rem; font-weight: 500; margin-top: 2px; }
+input.invalid, select.invalid { border-color: var(--red); background: #fef2f2; }
+
+/* ── Sortable table headers ── */
+.deal-table th.sortable { cursor: pointer; user-select: none; }
+.deal-table th.sortable:hover { color: var(--gray-900); }
+.deal-table th .sort-indicator { margin-left: 4px; opacity: 0.5; font-size: 0.7rem; }
+.deal-table th.sortable.active .sort-indicator { opacity: 1; color: var(--emerald); }
+
+/* ── Visible focus styles (a11y) ── */
+*:focus-visible { outline: 2px solid var(--emerald); outline-offset: 2px; border-radius: 4px; }
+button:focus-visible, .tiny-button:focus-visible, .filter-button:focus-visible, .demo-sidebar-link:focus-visible { outline-offset: 1px; }
+
+/* ── Auto-save indicator ── */
+.save-indicator { font-size: 0.8rem; color: var(--gray-500); font-weight: 500; font-style: italic; }
 .dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; flex-wrap: wrap; margin-bottom: 18px; }
 .filter-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
 .filter-button, .tiny-button, .secondary { padding: 10px 14px; border: 1px solid transparent; border-radius: 14px; background: var(--gray-50); color: var(--gray-700); font-size: 0.95rem; cursor: pointer; }

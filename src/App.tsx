@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { buildMilestones, buildReminders, buildSummary, determineRisk, getDealStatus, statusLabelClass } from './utils';
+import { buildMilestones, buildReminders, buildSummary, dealStatusLabel, determineRisk, formatISODate, getDealStatus, statusLabelClass } from './utils';
 import { collectReminders } from './reminderEngine';
 import type { Contact, ContactRole, DealStatus, DocumentStatus, LoanStatus, NotaireStatus, ReminderItem, Transaction, TransactionStage } from './types';
 import { deleteContact as deleteContactApi, deleteDeal as deleteDealApi, fetchContacts, fetchDeals, saveContact as saveContactApi, saveDeal, signIn, signUp, signOut, getSession, onAuthStateChange } from './api';
@@ -11,16 +11,16 @@ import { KanbanBoard } from './components/KanbanBoard';
 import { FileUpload, loadDocumentsForDeal } from './components/FileUpload';
 import { EmailTemplateSelector } from './components/EmailTemplateSelector';
 import { UpgradeModal } from './components/UpgradeModal';
+import { ToastContainer, type ToastItem, type ToastType } from './components/Toast';
+import { EmptyState } from './components/EmptyState';
 
 const REMINDER_INTERVAL_MS = 60_000;
 
-type Notification = { message: string; type: 'success' | 'error' } | null;
-
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = (): string => formatISODate(new Date());
 const addDays = (date: string, days: number): string => {
-  const d = new Date(date);
+  const d = new Date(date + 'T00:00:00');
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return formatISODate(d);
 };
 
 const makeEmptyTransaction = (): Transaction => {
@@ -176,7 +176,8 @@ function App() {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState<Contact>(emptyContact);
   const [filter, setFilter] = useState<DealStatus>('all');
-  const [notification, setNotification] = useState<Notification>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastIdRef = useRef(0);
   const [loading, setLoading] = useState(false);
   const [dueReminders, setDueReminders] = useState<ReminderItem[]>([]);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
@@ -208,7 +209,7 @@ function App() {
   };
 
   const loadData = async (userId: string) => {
-    setLoading(true); setNotification(null);
+    setLoading(true); /* no-op (toasts auto-dismiss) */;
     try {
       const [deals, savedContacts] = await Promise.all([fetchDeals(userId), fetchContacts(userId)]);
       setTransactions(deals); setContacts(savedContacts);
@@ -338,12 +339,18 @@ function App() {
   };
   const resetDealForm = () => { setSelectedDealId(null); setTransaction(makeEmptyTransaction()); };
   const resetContactForm = () => { setSelectedContactId(null); setContactForm(emptyContact); };
-  const notify = (message: string, type: 'success' | 'error' = 'success') => { setNotification({ message, type }); window.setTimeout(() => setNotification(null), type === 'error' ? 5000 : 3000); };
+  const notify = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    const id = ++toastIdRef.current;
+    setToasts((current) => [...current, { id, message, type }]);
+  }, []);
+  const dismissToast = useCallback((id: number) => {
+    setToasts((current) => current.filter((t) => t.id !== id));
+  }, []);
   const handleAuthFormChange = (field: 'email' | 'password', value: string) => setAuthForm((current) => ({ ...current, [field]: value }));
 
   const loginUser = async () => {
     if (!authForm.email.trim() || !authForm.password.trim()) { notify('Email et mot de passe requis.', 'error'); return; }
-    setLoading(true); setNotification(null);
+    setLoading(true); /* no-op (toasts auto-dismiss) */;
     try {
       const response = authMode === 'signIn' ? await signIn(authForm.email, authForm.password) : await signUp(authForm.email, authForm.password);
       if (response.error) throw response.error;
@@ -361,12 +368,12 @@ function App() {
   const logout = async () => {
     if (supabaseReady && user) await signOut();
     setUser(null); setDemoMode(false); setTransactions([]); setContacts([]);
-    setTransaction(makeEmptyTransaction()); setContactForm(emptyContact); setNotification(null); setDeleteConfirm(null);
+    setTransaction(makeEmptyTransaction()); setContactForm(emptyContact); /* no-op (toasts auto-dismiss) */; setDeleteConfirm(null);
   };
 
   const saveTransaction = async () => {
     if (!transaction.property.trim() || !transaction.buyer.trim() || !transaction.seller.trim()) { notify('Le bien, l\'acheteur et le vendeur sont requis.', 'error'); return; }
-    setLoading(true); setNotification(null);
+    setLoading(true); /* no-op (toasts auto-dismiss) */;
     try {
       if (user && !demoMode) {
         const result = await saveDeal(transaction, user.id);
@@ -397,7 +404,7 @@ function App() {
 
   const saveContactForm = async () => {
     if (!contactForm.name.trim()) { notify('Le nom du contact est requis.', 'error'); return; }
-    setLoading(true); setNotification(null);
+    setLoading(true); /* no-op (toasts auto-dismiss) */;
     try {
       if (user && !demoMode) {
         const result = await saveContactApi(contactForm, user.id);
@@ -479,7 +486,7 @@ function App() {
 
   const seedDemoData = () => {
     setTransactions(demoTransactions); setContacts(demoContacts);
-    resetDealForm(); resetContactForm(); setFilter('all'); setSearchQuery(''); setNotification(null);
+    resetDealForm(); resetContactForm(); setFilter('all'); setSearchQuery(''); /* no-op (toasts auto-dismiss) */;
     selectTransaction(demoTransactions[0].id);
     notify('Données de démo chargées ! ⚠️ Elles disparaîtront après rafraîchissement.', 'success');
   };
@@ -1220,6 +1227,7 @@ function App() {
 
   return (
     <div className="demo-layout">
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       {!hasRealData && (
         <section className="card demo-card" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, borderRadius: 0, margin: 0 }}>
           <div className="demo-banner">
@@ -1311,7 +1319,6 @@ function App() {
             <h1 className="demo-header-title">{pageTitle}</h1>
           </div>
           <div className="demo-header-right">
-            {notification && <div className={`notification ${notification.type === 'error' ? 'notification-error' : ''}`} style={{ margin: 0, padding: '8px 14px', fontSize: '0.85rem' }}>{notification.message}</div>}
             <div className="demo-avatar" title="Utilisateur démo">
               <span>👤</span>
             </div>
