@@ -1,4 +1,4 @@
-import type { DealStatus, Milestones, Transaction, TransactionRisk } from './types';
+import type { ContactRole, DealStatus, Milestones, Transaction, TransactionRisk } from './types';
 
 /**
  * Format a Date as YYYY-MM-DD in the *local* timezone.
@@ -176,6 +176,18 @@ export const withdrawalStatusLabel = (status: Transaction['withdrawalStatus']): 
   switch (status) {
     case 'in progress': return 'En cours';
     case 'complete': return 'Purgé';
+  }
+};
+
+/** French label for a contact role.
+ *  Previously the app capitalised the English value ("Buyer", "Seller")
+ *  which felt jarring in a French-first UI. */
+export const contactRoleLabel = (role: ContactRole): string => {
+  switch (role) {
+    case 'buyer': return 'Acheteur';
+    case 'seller': return 'Vendeur';
+    case 'notaire': return 'Notaire';
+    case 'other': return 'Autre';
   }
 };
 

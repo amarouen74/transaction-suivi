@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { buildMilestones, buildReminders, buildSummary, dealStatusLabel, determineRisk, formatISODate, getDealStatus, statusLabelClass } from './utils';
+import { buildMilestones, buildReminders, buildSummary, contactRoleLabel, dealStatusLabel, determineRisk, formatISODate, getDealStatus, statusLabelClass } from './utils';
 import { collectReminders } from './reminderEngine';
 import type { Contact, ContactRole, DealStatus, DocumentStatus, LoanStatus, NotaireStatus, ReminderItem, Transaction, TransactionStage } from './types';
 import { deleteContact as deleteContactApi, deleteDeal as deleteDealApi, fetchContacts, fetchDeals, saveContact as saveContactApi, saveDeal, signIn, signUp, signOut, getSession, onAuthStateChange } from './api';
@@ -64,7 +64,9 @@ const statusBadge = (value: string) => {
   const label = value === 'critical' ? 'Critique' : value === 'at risk' ? 'À risque' : value === 'on track' ? 'En ordre' : value;
   return <span className={`status-badge ${color}`}>{label}</span>;
 };
-const roleLabel = (role: ContactRole) => role.replace(/\b\w/g, (c) => c.toUpperCase());
+// Use the centralised French contactRoleLabel from utils.ts instead of a local helper.
+// (Previously this capitalised the English value — jarring in a French UI.)
+const roleLabel = contactRoleLabel;
 
 // (Demo data + helpers are now imported from ./data/demoData)
 
